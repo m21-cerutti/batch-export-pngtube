@@ -22,10 +22,10 @@ class Options:
         self.overwrite_files = self._str_to_bool(batch_exporter.options.overwrite_files)
 
         # Controls page
+        self.using_clones = self._str_to_bool(batch_exporter.options.using_clones)
         self.skip_hidden_layers = self._str_to_bool(
             batch_exporter.options.skip_hidden_layers
         )
-        self.using_clones = self._str_to_bool(batch_exporter.options.using_clones)
 
         # Export size page
         self.export_area_type = batch_exporter.options.export_area_type
@@ -66,8 +66,8 @@ class Options:
         print += "Path: {}\n".format(self.output_path)
         print += "Overwrite files: {}\n".format(self.overwrite_files)
         print += "\n======> Controls page\n"
-        print += "Skip hidden layers: {}\n".format(self.skip_hidden_layers)
         print += "Using clones: {}\n".format(self.using_clones)
+        print += "Skip hidden layers: {}\n".format(self.skip_hidden_layers)
         print += "\n======> Export size page\n"
         print += "Export area type: {}\n".format(self.export_area_type)
         print += "Export area size: {}\n".format(self.export_area_size)
@@ -142,18 +142,18 @@ class BatchExporter(inkex.Effect):
 
         # Controls page
         self.arg_parser.add_argument(
-            "--skip-hidden-layers",
-            action="store",
-            type=str,
-            dest="skip_hidden_layers",
-            default=False,
-            help="",
-        )
-        self.arg_parser.add_argument(
             "--using-clones",
             action="store",
             type=str,
             dest="using_clones",
+            default=False,
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--skip-hidden-layers",
+            action="store",
+            type=str,
+            dest="skip_hidden_layers",
             default=False,
             help="",
         )
@@ -243,7 +243,7 @@ class BatchExporter(inkex.Effect):
             default="0",
             help="",
         )
-        
+
         # Help page
         self.arg_parser.add_argument(
             "--use-logging",
@@ -291,13 +291,16 @@ class BatchExporter(inkex.Effect):
         options = Options(self)
         logging.debug(options)
 
+        # Is working on self.document is safe ? Security
+        self.working_doc = copy.deepcopy(self.document)
+
         # Build the partial inkscape export command
         command = self.build_partial_command(options)
 
         counter = options.number_start
 
         # Replace or delete clones
-        # TODO
+        self.handles_clones(options.using_clones)
 
         # Delete skip branches
         # TODO
@@ -316,10 +319,6 @@ class BatchExporter(inkex.Effect):
                 for layer in layers
                 if layer[2] == "fixed" or layer[0] == layer_id
             ]
-            # Append parent layers
-            if options.hierarchical_layers:
-                show_layer_ids.extend(parents)
-                logging.debug(show_layer_ids)
 
             # Create the output folder if it doesn't exist
             if not os.path.exists(os.path.join(options.output_path)):
@@ -369,9 +368,66 @@ class BatchExporter(inkex.Effect):
             counter += 1
         """
 
+    def handles_clones(self, using_clones):
+        doc = self.working_doc
+        svg_clones = doc.xpath("//svg:use[@xlink:href]", namespaces=inkex.NSS)
 
-    def get_layers(self, skip_hidden_layers, use_background_layers):
-        svg_layers = self.document.xpath(
+        clones_to_replace = {}
+
+        # Search clones
+        for clone in svg_clones:
+            clone_id = clone.attrib["id"]
+            # Find id ref and remove #
+            ref_attrib_name = "{%s}href" % clone.nsmap["xlink"]
+            clone_ref_id = clone.attrib[ref_attrib_name][1:]
+
+            parent = clone.getparent()
+            index = list(parent).index(clone)
+
+            # Case multiple clones with same original
+            if clone_ref_id not in clones_to_replace.keys():
+                clones_to_replace[clone_ref_id] = []
+
+            logging.debug(
+                "  Clone : [{}, {}, {}]".format(clone_id, clone_ref_id, index)
+            )
+            clones_to_replace[clone_ref_id].append((parent, index, clone, clone_id))
+
+        if using_clones:
+            self.replace_clones_by_original(clones_to_replace)
+        else:
+            # Delete them to avoid corrupted file
+            for clone_list in reversed(clones_to_replace.values()):
+                for clone_infos in clone_list:
+                    clone_infos[0].remove(clone_infos[2])
+
+        # self._debug_svg_doc_wait(doc)
+        logging.debug("  TOTAL NUMBER OF CLONES: {}\n".format(len(svg_clones)))
+
+    def replace_clones_by_original(self, clones_to_replace):
+        doc = self.working_doc
+        for element in doc.iter():
+            if "id" not in element.attrib:
+                continue
+
+            id = element.attrib["id"]
+            if id in clones_to_replace.keys():
+                for clone_infos in clones_to_replace[id]:
+                    # Replace clone in parent by copy of original
+                    copy_el = copy.deepcopy(element)
+                    if "transform" in clone_infos[2].attrib:
+                        copy_el.attrib["transform"] = clone_infos[2].attrib["transform"]
+
+                    clone_infos[0].remove(clone_infos[2])
+                    clone_infos[0].insert(clone_infos[1], copy_el)
+                    logging.debug("  REPLACE: {}->{}".format(clone_infos[3], id))
+                # Avoid re-apply replace with replaced element
+                del clones_to_replace[id]
+
+        # self._debug_svg_doc_wait(doc)
+
+    def get_layers(self, skip_hidden_layers):
+        svg_layers = self.working_doc.xpath(
             '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
         )
         layers = []
@@ -441,7 +497,7 @@ class BatchExporter(inkex.Effect):
     # Delete/Hide unwanted layers to create a clean svg file that will be exported
     def manage_layers(self, target_layer_id, show_layer_ids, hide_layers):
         # Create a copy of the current document
-        doc = copy.deepcopy(self.document)
+        doc = copy.deepcopy(self.working_doc)
         target_layer_found = False
         target_layer = None
 
