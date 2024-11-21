@@ -14,26 +14,27 @@ class Options:
     def __init__(self, batch_exporter):
         self.current_file = batch_exporter.options.input_file
 
-        # Controls page
+        # Export file page
         self.export_type = batch_exporter.options.export_type
+        self.export_plain_svg = self._str_to_bool(
+            batch_exporter.options.export_plain_svg
+        )
+        self.export_pdf_version = batch_exporter.options.export_pdf_version
         self.output_path = os.path.normpath(batch_exporter.options.path)
+        self.overwrite_files = self._str_to_bool(batch_exporter.options.overwrite_files)
+
+        # Controls page
         self.use_background_layers = self._str_to_bool(
             batch_exporter.options.use_background_layers
         )
         self.skip_hidden_layers = self._str_to_bool(
             batch_exporter.options.skip_hidden_layers
         )
-        self.overwrite_files = self._str_to_bool(batch_exporter.options.overwrite_files)
-        self.export_plain_svg = self._str_to_bool(
-            batch_exporter.options.export_plain_svg
-        )
         self.using_clones = self._str_to_bool(batch_exporter.options.using_clones)
         hierarchical_layers = batch_exporter.options.hierarchical_layers
         self.hierarchical_layers = False
         if hierarchical_layers == "hierarchical":
             self.hierarchical_layers = True
-
-        self.export_pdf_version = batch_exporter.options.export_pdf_version
 
         # Export size page
         self.export_area_type = batch_exporter.options.export_area_type
@@ -49,6 +50,7 @@ class Options:
             batch_exporter.options.use_number_prefix
         )
         self.name_template = batch_exporter.options.name_template
+        self.number_start = batch_exporter.options.number_start
 
         # Help page
         self.use_logging = self._str_to_bool(batch_exporter.options.use_logging)
@@ -65,17 +67,18 @@ class Options:
 
     def __str__(self):
         print = "===> EXTENSION PARAMETERS\n"
-        print += "\n======> Controls page\n"
         print += "Current file: {}\n".format(self.current_file)
+        print += "\n======> Export file page\n"
         print += "Export type: {}\n".format(self.export_type)
+        print += "Export plain SVG: {}\n".format(self.export_plain_svg)
+        print += "Export PDF version: {}\n".format(self.export_pdf_version)
         print += "Path: {}\n".format(self.output_path)
+        print += "Overwrite files: {}\n".format(self.overwrite_files)
+        print += "\n======> Controls page\n"
         print += "Use background layers: {}\n".format(self.use_background_layers)
         print += "Skip hidden layers: {}\n".format(self.skip_hidden_layers)
-        print += "Overwrite files: {}\n".format(self.overwrite_files)
-        print += "Export plain SVG: {}\n".format(self.export_plain_svg)
         print += "Using clones: {}\n".format(self.using_clones)
         print += "Hierarchical layers: {}\n".format(self.hierarchical_layers)
-        print += "Export PDF version: {}\n".format(self.export_pdf_version)
         print += "\n======> Export size page\n"
         print += "Export area type: {}\n".format(self.export_area_type)
         print += "Export area size: {}\n".format(self.export_area_size)
@@ -87,6 +90,7 @@ class Options:
         print += "Naming scheme: {}\n".format(self.naming_scheme)
         print += "Add number as prefix: {}\n".format(self.use_number_prefix)
         print += "Name template: {}\n".format(self.name_template)
+        print += "Start count at : {}\n".format(self.number_start)
         print += "\n======> Help page\n"
         print += "Use logging: {}\n".format(self.use_logging)
         print += "Overwrite log: {}\n".format(self.overwrite_log)
@@ -105,13 +109,29 @@ class BatchExporter(inkex.Effect):
         """init the effetc library and get options from gui"""
         inkex.Effect.__init__(self)
 
-        # Controls page
+        # Export file page
         self.arg_parser.add_argument(
             "--export-type",
             action="store",
             type=str,
             dest="export_type",
             default="svg",
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--export-plain-svg",
+            action="store",
+            type=str,
+            dest="export_plain_svg",
+            default=False,
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--export-pdf-version",
+            action="store",
+            type=str,
+            dest="export_pdf_version",
+            default="1.5",
             help="",
         )
         self.arg_parser.add_argument(
@@ -122,6 +142,16 @@ class BatchExporter(inkex.Effect):
             default="",
             help="export path",
         )
+        self.arg_parser.add_argument(
+            "--overwrite-files",
+            action="store",
+            type=str,
+            dest="overwrite_files",
+            default=False,
+            help="",
+        )
+
+        # Controls page
 
         # TODO Uselesss ?
         self.arg_parser.add_argument(
@@ -143,22 +173,6 @@ class BatchExporter(inkex.Effect):
             help="",
         )
         self.arg_parser.add_argument(
-            "--overwrite-files",
-            action="store",
-            type=str,
-            dest="overwrite_files",
-            default=False,
-            help="",
-        )
-        self.arg_parser.add_argument(
-            "--export-plain-svg",
-            action="store",
-            type=str,
-            dest="export_plain_svg",
-            default=False,
-            help="",
-        )
-        self.arg_parser.add_argument(
             "--using-clones",
             action="store",
             type=str,
@@ -176,14 +190,8 @@ class BatchExporter(inkex.Effect):
             default="solo",
             help="Is this working?",
         )
-        self.arg_parser.add_argument(
-            "--export-pdf-version",
-            action="store",
-            type=str,
-            dest="export_pdf_version",
-            default="1.5",
-            help="",
-        )
+
+        # TODO add prefix ignore layer
 
         # Export size page
         self.arg_parser.add_argument(
@@ -260,9 +268,15 @@ class BatchExporter(inkex.Effect):
             default="[LAYER_NAME]",
             help="",
         )
-        # TODO add begin number
-        # TODO add prefix ignore layer
-
+        self.arg_parser.add_argument(
+            "--number-start",
+            action="store",
+            type=int,
+            dest="number_start",
+            default="0",
+            help="",
+        )
+        
         # Help page
         self.arg_parser.add_argument(
             "--use-logging",
@@ -291,15 +305,14 @@ class BatchExporter(inkex.Effect):
         )
 
     def effect(self):
-        # TODO make it parametrisable
-        counter = 1
-
         # Check user options
         options = Options(self)
         logging.debug(options)
 
         # Build the partial inkscape export command
         command = self.build_partial_command(options)
+
+        counter = options.number_start
 
         # Get the layers from the current file
         layers = self.get_layers(

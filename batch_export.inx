@@ -6,9 +6,15 @@
 
   <label>Export each layer as a different file, handle also hierarchy for PNGTube software.</label>
   <param name="tab" type="notebook">
-    <page name="controls" gui-text="Controls">
+    <page name="export-file" gui-text="Export file">
 
-      <label appearance="header">Export parameters</label>
+      <label indent="1">Export path:</label>
+      <param name="path" type="path" mode="folder" gui-text="" indent="1"/>
+      <param name="overwrite-files" type="bool" gui-text="Overwrite existing files" indent="1">false</param>
+      <separator/>
+      <spacer/>
+
+      <label appearance="header">Layers parameters</label>
       <param name="export-type" type="enum" gui-text="Export layers as:" indent="1">
         <item value="svg">SVG</item>
         <item value="png">PNG</item>
@@ -19,28 +25,24 @@
         <item value="wmf">WMF</item>
         <item value="xaml">XAML</item>
       </param>
-
       <param name="export-pdf-version" type="enum" gui-text="PDF version:" indent="1">
         <item value="1.4">1.4</item>
         <item value="1.5">1.5</item>
       </param>
+      <param name="export-plain-svg" type="bool" gui-text="Export plain SVG" indent="1">true</param>
+
+    </page>
+
+    <page name="controls" gui-text="Controls">
+
+      <label appearance="header">Options</label>
       <param name="hierarchical-layers" type="enum" gui-text="Layer export mode:" indent="1">
         <item value="solo">Export each layer as a single layer</item>
         <item value="hierarchical">Use parent layers as background layers</item>
       </param>
-
-      <label indent="1">Export path:</label>
-      <param name="path" type="path" mode="folder" gui-text="" indent="1"/>
-      <separator/>
-      <spacer/>
-
-      <label appearance="header">Other options</label>
       <param name="use-background-layers" type="bool" gui-text="Use background layers" indent="1">false</param>
       <param name="skip-hidden-layers" type="bool" gui-text="Skip hidden layers" indent="1">false</param>
-      <param name="overwrite-files" type="bool" gui-text="Overwrite existing files" indent="1">false</param>
-      <param name="export-plain-svg" type="bool" gui-text="Export plain SVG" indent="1">true</param>
       <param name="using-clones" type="bool" gui-text="Using clones" gui-description="It is recommended to unlink clones recursively(this will break clones) and leave this option unticked." indent="1">false</param>
-
 
     </page>
 
@@ -85,6 +87,7 @@
       <spacer/>
 
       <label appearance="header">Advanced naming</label>
+
       <param name="help" type="description" indent="1">Define custom naming scheme:</param>
       <param name="name-template" type="string" gui-text="" indent="1">[LAYER_NAME]</param>
       <param name="help" type="description" indent="1">Tags you can use:</param>
@@ -94,6 +97,8 @@
       <param name="help" type="description" indent="3">ex. [NUM-2] - replaced by increasing numbers with 2 digits [00 .. 99]</param>
       <param name="help" type="description" indent="2">- Any text you want.</param>
       <param name="help" type="description" indent="3">ex. design [LAYER_NAME]</param>
+      <separator/>
+      <param name="number-start" type="int" min="0" max="9999" gui-text="Start at:">0</param>
     </page>
 
     <page name="help" gui-text="Help">
