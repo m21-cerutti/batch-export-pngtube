@@ -45,6 +45,13 @@
       <separator/>
       <spacer/>
 
+      <label appearance="header">Select options:</label>
+      <param name="select-behavior" type="enum" gui-text="Select for exporting:" indent="1">
+        <item value="only-leaf">OnlyLeaf</item>
+        <item value="parents-and-leaf">ParentsAndLeaf</item>
+      </param>
+      <param name="ignore-prefix" type="string" gui-text="Ignore prefix: " indent="1">_</param>
+      <param name="use-ignored-name" type="bool" gui-text="Use ignored for hierarchy name (without prefix)" indent="1">false</param>
     </page>
 
     <page name="export-size" gui-text="Export size">

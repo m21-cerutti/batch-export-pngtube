@@ -8,6 +8,7 @@ import tempfile
 import copy
 import logging
 from collections import deque
+from tkinter import messagebox
 
 
 class Options:
@@ -30,6 +31,11 @@ class Options:
             batch_exporter.options.skip_hidden_layers
         )
         self.skip_prefix = batch_exporter.options.skip_prefix
+        self.select_behavior = batch_exporter.options.select_behavior
+        self.ignore_prefix = batch_exporter.options.ignore_prefix
+        self.use_ignored_name = self._str_to_bool(
+            batch_exporter.options.use_ignored_name
+        )
 
         # Export size page
         self.export_area_type = batch_exporter.options.export_area_type
@@ -75,6 +81,9 @@ class Options:
         print += "Using clones: {}\n".format(self.using_clones)
         print += "Skip hidden layers: {}\n".format(self.skip_hidden_layers)
         print += "Skip prefix: {}\n".format(self.skip_prefix)
+        print += "Select beahavior: {}\n".format(self.select_behavior)
+        print += "Ignore prefix: {}\n".format(self.ignore_prefix)
+        print += "Use ignored name (no prefix): {}\n".format(self.use_ignored_name)
         print += "\n======> Export size page\n"
         print += "Export area type: {}\n".format(self.export_area_type)
         print += "Export area size: {}\n".format(self.export_area_size)
@@ -182,8 +191,30 @@ class BatchExporter(inkex.Effect):
             default="_",
             help="",
         )
-
-        # TODO add prefix ignore layer
+        self.arg_parser.add_argument(
+            "--select-behavior",
+            action="store",
+            type=str,
+            dest="select_behavior",
+            default="only-leaf",
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--ignore-prefix",
+            action="store",
+            type=str,
+            dest="ignore_prefix",
+            default="_",
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--use-ignored-name",
+            action="store",
+            type=str,
+            dest="use_ignored_name",
+            default=False,
+            help="",
+        )
 
         # Export size page
         self.arg_parser.add_argument(
@@ -339,7 +370,13 @@ class BatchExporter(inkex.Effect):
         self.delete_skipped_layers(options.skip_hidden_layers, options.skip_prefix)
 
         # Get the layers selected
-        layers = self.get_layers()
+        layers_infos = self.get_layers(
+            options.select_behavior, options.ignore_prefix, options.use_ignored_name
+        )
+
+        layers = self.fill_and_check_paths(layers_infos, options.number_start)
+
+        # TODO Test duplicate names
 
         doc = self.create_base_export_document()
 
@@ -510,8 +547,9 @@ class BatchExporter(inkex.Effect):
 
         # self._debug_svg_doc_wait(doc)
 
-    def get_layers(self):
-        svg_layers = self.working_doc.xpath(
+    def get_layers(self, select_behavior, ignore_prefix, use_ignored):
+        doc = self.working_doc
+        svg_layers = doc.xpath(
             '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
         )
 
@@ -522,21 +560,36 @@ class BatchExporter(inkex.Effect):
             if label_attrib_name not in layer.attrib:
                 continue
 
-            # Get layer parents, if any
+            # Check if parent
+            label_attrib_groupmode = "{%s}groupmode" % layer.nsmap["inkscape"]
+            is_parent = any(
+                label_attrib_groupmode in child.attrib
+                and child.attrib[label_attrib_groupmode] == "layer"
+                for child in layer.getchildren()
+            )
+
+            if select_behavior == "only-leaf" and is_parent:
+                continue
+
+            layer_label = layer.attrib[label_attrib_name]
+            if layer_label.startswith(ignore_prefix):
+                continue
+
+            # Get layer parents
             parents = []
             parent = layer.getparent()
-            while True:
-                if label_attrib_name not in parent.attrib:
-                    break
-                # Found a parent layer
-                # logging.debug("parent: {}".format(parent.attrib["id"]))
-                parents.append(parent.attrib["id"])
+            while label_attrib_name in parent.attrib:
+                name_parent = parent.attrib[label_attrib_name]
+                # TODO Keep ignored to make errors
+                if not name_parent.startswith(ignore_prefix) or use_ignored:
+                    parents.append(name_parent)
                 parent = parent.getparent()
 
             layer_id = layer.attrib["id"]
             layer_label = layer.attrib[label_attrib_name]
             layer_type = "export"
 
+            # TODO Debug ignored instead
             logging.debug("  Use: [{}, {}]".format(layer_label, layer_type))
             layer_info = (layer, parents)  # filename ?
             layers.append([layer_id, layer_label, layer_type, parents, layer])
