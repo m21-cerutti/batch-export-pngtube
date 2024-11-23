@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
-  <_name>Batch export</_name>
+  <_name>Batch export PNGTUBE</_name>
   <id>org.domain.sub-domain.batch.export</id>
   <dependency type="executable" location="extensions">batch_export.py</dependency>
 
-  <label>Export each layer as a different file.</label>
+  <label>Export each layer as a different file, handle also hierarchy for PNGTube software.</label>
   <param name="tab" type="notebook">
     <page name="controls" gui-text="Controls">
 
@@ -107,14 +107,14 @@
 
       <label appearance="header">Thank you!</label>
       <param name="help" type="description" indent="1">If this extension has helped you please consider supporting it and give it a star on Github.</param>
-      <param name="help" type="description" indent="1">https://github.com/StefanTraistaru/batch-export</param>
+      <param name="help" type="description" indent="1">https://github.com/m21-cerutti/batch-export-pngtube</param>
     </page>
   </param>
 
   <effect needs-live-preview="false">
     <object-type>all</object-type>
     <effects-menu>
-      <submenu _name="Export" />
+      <submenu _name="Export"/>
     </effects-menu>
   </effect>
 
