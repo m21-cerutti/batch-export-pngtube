@@ -1,11 +1,13 @@
 #! /usr/bin/env python
 
+from concurrent.futures import ThreadPoolExecutor
 import inkex
 import os
 import subprocess
 import tempfile
 import copy
 import logging
+from collections import deque
 
 
 class Options:
@@ -41,6 +43,10 @@ class Options:
         self.hierarchy_separator = batch_exporter.options.hierarchy_separator
         self.name_template = batch_exporter.options.name_template
         self.number_start = batch_exporter.options.number_start
+
+        # Threads page
+        self.number_threads = batch_exporter.options.number_threads
+        self.chunks_size = batch_exporter.options.chunks_size
 
         # Help page
         self.use_logging = self._str_to_bool(batch_exporter.options.use_logging)
@@ -79,7 +85,10 @@ class Options:
         print += "\n======> File naming page\n"
         print += "Hierarchy separator: {}\n".format(self.hierarchy_separator)
         print += "Name template: {}\n".format(self.name_template)
-        print += "Start count at : {}\n".format(self.number_start)
+        print += "Start count at: {}\n".format(self.number_start)
+        print += "\n======> Threads page\n"
+        print += "Number threads: {}\n".format(self.number_threads)
+        print += "Chunks size: {}\n".format(self.chunks_size)
         print += "\n======> Help page\n"
         print += "Use logging: {}\n".format(self.use_logging)
         print += "Overwrite log: {}\n".format(self.overwrite_log)
@@ -252,6 +261,24 @@ class BatchExporter(inkex.Effect):
             help="",
         )
 
+        # Theads page
+        self.arg_parser.add_argument(
+            "--number-threads",
+            action="store",
+            type=int,
+            dest="number_threads",
+            default="4",
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--chunks-size",
+            action="store",
+            type=int,
+            dest="chunks_size",
+            default="1",
+            help="",
+        )
+
         # Help page
         self.arg_parser.add_argument(
             "--use-logging",
@@ -305,8 +332,6 @@ class BatchExporter(inkex.Effect):
         # Build the partial inkscape export command
         command = self.build_partial_command(options)
 
-        counter = options.number_start
-
         # Replace or delete clones
         self.handles_clones(options.using_clones)
 
@@ -317,7 +342,18 @@ class BatchExporter(inkex.Effect):
         layers = self.get_layers()
 
         doc = self.create_base_export_document()
-        
+
+        with ThreadPoolExecutor(max_workers=options.number_threads) as executor:
+            files_result = list(
+                executor.map(
+                    self.construct_thread(doc, command, options.use_logging),
+                    layers,
+                    chunksize=options.chunks_size,
+                )
+            )
+            
+        # TODO with Json returned to merge ?
+
         # TODO Json manifest
 
         """
@@ -400,9 +436,7 @@ class BatchExporter(inkex.Effect):
             if clone_ref_id not in clones_to_replace.keys():
                 clones_to_replace[clone_ref_id] = []
 
-            logging.debug(
-                "  Clone : [{}, {}, {}]".format(clone_id, clone_ref_id, index)
-            )
+            logging.debug("  Clone: [{}, {}, {}]".format(clone_id, clone_ref_id, index))
             clones_to_replace[clone_ref_id].append((parent, index, clone, clone_id))
 
         if using_clones:
@@ -503,14 +537,24 @@ class BatchExporter(inkex.Effect):
             layer_label = layer.attrib[label_attrib_name]
             layer_type = "export"
 
-            logging.debug("  Use : [{}, {}]".format(layer_label, layer_type))
-            layers.append([layer_id, layer_label, layer_type, parents])
+            logging.debug("  Use: [{}, {}]".format(layer_label, layer_type))
+            layer_info = (layer, parents)  # filename ?
+            layers.append([layer_id, layer_label, layer_type, parents, layer])
 
         logging.debug("  TOTAL NUMBER OF LAYERS: {}\n".format(len(layers)))
         logging.debug(layers)
 
         # self._debug_svg_doc_wait(doc)
         return layers
+
+    def fill_and_check_paths(self, layer_infos, number_start):
+
+        # TODO Test duplicate names/path
+        logging.error("User error ?")
+        messagebox.showerror(title="User error", message="Test")
+        logging.error("User error 2 ?")
+
+        return []
 
     def create_base_export_document(self):
         doc = copy.deepcopy(self.working_doc)
@@ -532,7 +576,6 @@ class BatchExporter(inkex.Effect):
     def build_partial_command(self, options):
         command = ["inkscape", "--vacuum-defs"]
 
-        # TODO Usefull ?
         if options.export_type == "svg" and options.export_plain_svg == True:
             command.append("--export-plain-svg")
         if options.export_type == "pdf":
@@ -555,6 +598,45 @@ class BatchExporter(inkex.Effect):
 
         return command
 
+    def construct_thread(self, doc, base_command, use_logging):
+        def export_layer_threaded(layer_infos):
+            export_doc = copy.deepcopy(doc)
+            command = copy.deepcopy(base_command)
+
+            # Add the layer inside fresh document
+            layer = layer_infos[0]
+            root = export_doc.getroot()
+            layer.attrib["style"] = "display:inline"
+            root.append(layer)
+
+            label_attrib_name = "{%s}label" % layer.nsmap["inkscape"]
+            label = layer[label_attrib_name]
+
+            path = layer_infos[1]
+
+            # Save the data in a temporary file
+            with tempfile.NamedTemporaryFile(
+                delete=False, suffix=".svg"
+            ) as temporary_file:
+
+                logging.debug("    Creating temp file {}".format(temporary_file.name))
+                export_doc.write(temporary_file.name)
+                temporary_file.close()
+
+                logging.debug("  Exporting [{}] as {}".format(label, path))
+                self.export_to_file(
+                    command.copy(),
+                    temporary_file.name,
+                    path,
+                    use_logging,
+                )
+
+            os.remove(temporary_file.name)
+            return True
+
+        return export_layer_threaded
+
+    """
     # Delete/Hide unwanted layers to create a clean svg file that will be exported
     def manage_layers(self, target_layer_id, show_layer_ids, hide_layers):
         # Create a copy of the current document
@@ -601,15 +683,11 @@ class BatchExporter(inkex.Effect):
             logging.debug("    Creating temp file {}".format(temporary_file.name))
             doc.write(temporary_file.name)
             return temporary_file.name
-
-    def get_simple_name(self, use_number_prefix, counter, layer_label):
-        if use_number_prefix:
-            return "{}_{}".format(counter, layer_label)
-
-        return layer_label
+    """
 
     def get_advanced_name(self, template_name, counter, layer_label):
         file_name = template_name
+        # TODO hierarchy
         file_name = file_name.replace("[LAYER_NAME]", layer_label)
         file_name = file_name.replace("[NUM]", str(counter))
         file_name = file_name.replace("[NUM-1]", str(counter).zfill(1))

@@ -102,6 +102,12 @@
       <param name="help" type="description" indent="2">5_Ancestor1_Ancestor2_LayerName-testX</param>
     </page>
 
+    <page name="naming" gui-text="Threads">
+      <label appearance="header">Options</label>
+      <param name="number-threads" type="int" min="1" max="64" gui-text="Number threads:">8</param>
+      <param name="chunks-size" type="int" min="1" max="64" gui-text="Chunks size:">2</param>
+    </page>
+
     <page name="help" gui-text="Help">
       <label appearance="header">Logging</label>
       <param name="use-logging" type="bool" gui-text="Use logging" indent="1">false</param>
