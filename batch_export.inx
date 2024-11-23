@@ -8,9 +8,11 @@
   <param name="tab" type="notebook">
     <page name="export-file" gui-text="Export file">
 
+      <label appearance="header">Export parameters</label>
       <label indent="1">Export path:</label>
       <param name="path" type="path" mode="folder" gui-text="" indent="1"/>
       <param name="overwrite-files" type="bool" gui-text="Overwrite existing files" indent="1">false</param>
+      <param name="export-manifest" type="bool" gui-text="Export manifest (Json) with layer's hierarchy" indent="1">true</param>
       <separator/>
       <spacer/>
 

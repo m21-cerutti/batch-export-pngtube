@@ -20,6 +20,7 @@ class Options:
         self.export_pdf_version = batch_exporter.options.export_pdf_version
         self.output_path = os.path.normpath(batch_exporter.options.path)
         self.overwrite_files = self._str_to_bool(batch_exporter.options.overwrite_files)
+        self.export_manifest = self._str_to_bool(batch_exporter.options.export_manifest)
 
         # Controls page
         self.using_clones = self._str_to_bool(batch_exporter.options.using_clones)
@@ -66,6 +67,7 @@ class Options:
         print += "Export PDF version: {}\n".format(self.export_pdf_version)
         print += "Path: {}\n".format(self.output_path)
         print += "Overwrite files: {}\n".format(self.overwrite_files)
+        print += "Export manifest JSON: {}\n".format(self.export_manifest)
         print += "\n======> Controls page\n"
         print += "Using clones: {}\n".format(self.using_clones)
         print += "Skip hidden layers: {}\n".format(self.skip_hidden_layers)
@@ -139,6 +141,14 @@ class BatchExporter(inkex.Effect):
             type=str,
             dest="overwrite_files",
             default=False,
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--export-manifest",
+            action="store",
+            type=str,
+            dest="export_manifest",
+            default=True,
             help="",
         )
 
