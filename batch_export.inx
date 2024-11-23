@@ -35,9 +35,13 @@
 
     <page name="controls" gui-text="Controls">
 
-      <label appearance="header">Options</label>
-      <param name="skip-hidden-layers" type="bool" gui-text="Skip hidden layers" indent="1">false</param>
+      <label appearance="header">Skip options:</label>
+      <param name="help" type="description" indent="1">This options will skip and not handle</param>
       <param name="using-clones" type="bool" gui-text="Using clones" gui-description="" indent="1">true</param>
+      <param name="skip-hidden-layers" type="bool" gui-text="Skip hidden layers" indent="1">false</param>
+      <param name="skip-prefix" type="string" gui-text="Skip prefix" indent="1">[skip]</param>
+      <separator/>
+      <spacer/>
 
     </page>
 

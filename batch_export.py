@@ -26,6 +26,7 @@ class Options:
         self.skip_hidden_layers = self._str_to_bool(
             batch_exporter.options.skip_hidden_layers
         )
+        self.skip_prefix = batch_exporter.options.skip_prefix
 
         # Export size page
         self.export_area_type = batch_exporter.options.export_area_type
@@ -68,6 +69,7 @@ class Options:
         print += "\n======> Controls page\n"
         print += "Using clones: {}\n".format(self.using_clones)
         print += "Skip hidden layers: {}\n".format(self.skip_hidden_layers)
+        print += "Skip prefix: {}\n".format(self.skip_prefix)
         print += "\n======> Export size page\n"
         print += "Export area type: {}\n".format(self.export_area_type)
         print += "Export area size: {}\n".format(self.export_area_size)
@@ -146,7 +148,7 @@ class BatchExporter(inkex.Effect):
             action="store",
             type=str,
             dest="using_clones",
-            default=False,
+            default=True,
             help="",
         )
         self.arg_parser.add_argument(
@@ -155,6 +157,14 @@ class BatchExporter(inkex.Effect):
             type=str,
             dest="skip_hidden_layers",
             default=False,
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--skip-prefix",
+            action="store",
+            type=str,
+            dest="skip_prefix",
+            default="_",
             help="",
         )
 
@@ -303,11 +313,11 @@ class BatchExporter(inkex.Effect):
         self.handles_clones(options.using_clones)
 
         # Delete skip branches
-        # TODO
+        self.delete_skipped_layers(options.skip_hidden_layers, options.skip_prefix)
 
         # Get the layers selected
-        layers = self.get_layers(options.skip_hidden_layers)
-
+        layers = self.get_layers()
+        
         """
         # For each layer export a file
         for layer_id, layer_label, layer_type, parents in layers:
@@ -426,7 +436,45 @@ class BatchExporter(inkex.Effect):
 
         # self._debug_svg_doc_wait(doc)
 
-    def get_layers(self, skip_hidden_layers):
+    def delete_skipped_layers(self, skip_hidden_layers, skip_prefix):
+        doc = self.working_doc
+
+        svg_layers = doc.xpath(
+            '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
+        )
+        layers_skipped = deque()
+
+        for layer in svg_layers:
+            label_attrib_name = "{%s}label" % layer.nsmap["inkscape"]
+            if label_attrib_name not in layer.attrib:
+                continue
+
+            parent = layer.getparent()
+
+            layer_id = layer.attrib["id"]
+            layer_label: str = layer.attrib[label_attrib_name]
+
+            # Delete hidden layers
+            if layer_label.startswith(skip_prefix) or (
+                skip_hidden_layers
+                and "style" in layer.attrib
+                and "display:none" in layer.attrib["style"]
+            ):
+
+                logging.debug("  Skip: [{}]".format(layer.attrib[label_attrib_name]))
+                layers_skipped.appendleft([parent, layer])
+
+        logging.debug(
+            "  TOTAL NUMBER OF LAYERS SKIPPED: {}\n".format(len(layers_skipped))
+        )
+
+        # Delete children before parent
+        for layer_info in reversed(layers_skipped):
+            layer_info[0].remove(layer_info[1])
+
+        # self._debug_svg_doc_wait(doc)
+
+    def get_layers(self):
         svg_layers = self.working_doc.xpath(
             '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
         )
@@ -448,13 +496,13 @@ class BatchExporter(inkex.Effect):
                 parents.append(parent.attrib["id"])
                 parent = parent.getparent()
 
-            # Skipping hidden layers
-            if skip_hidden_layers and "style" in layer.attrib:
-                if "display:none" in layer.attrib["style"]:
-                    logging.debug(
-                        "  Skip: [{}]".format(layer.attrib[label_attrib_name])
-                    )
-                    continue
+            # Ignore hidden layers TODO
+            # if skip_hidden_layers and "style" in layer.attrib:
+            #     if "display:none" in layer.attrib["style"]:
+            #         logging.debug(
+            #             "  Skip: [{}]".format(layer.attrib[label_attrib_name])
+            #         )
+            #         continue
 
             layer_id = layer.attrib["id"]
             layer_label = layer.attrib[label_attrib_name]
