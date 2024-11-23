@@ -38,10 +38,7 @@ class Options:
         self.export_res_height = batch_exporter.options.export_res_height
 
         # File naming page
-        self.naming_scheme = batch_exporter.options.naming_scheme
-        self.use_number_prefix = self._str_to_bool(
-            batch_exporter.options.use_number_prefix
-        )
+        self.hierarchy_separator = batch_exporter.options.hierarchy_separator
         self.name_template = batch_exporter.options.name_template
         self.number_start = batch_exporter.options.number_start
 
@@ -80,8 +77,7 @@ class Options:
         print += "Export res width: {}\n".format(self.export_res_width)
         print += "Export res height: {}\n".format(self.export_res_height)
         print += "\n======> File naming page\n"
-        print += "Naming scheme: {}\n".format(self.naming_scheme)
-        print += "Add number as prefix: {}\n".format(self.use_number_prefix)
+        print += "Hierarchy separator: {}\n".format(self.hierarchy_separator)
         print += "Name template: {}\n".format(self.name_template)
         print += "Start count at : {}\n".format(self.number_start)
         print += "\n======> Help page\n"
@@ -232,22 +228,6 @@ class BatchExporter(inkex.Effect):
 
         # File naming page
         self.arg_parser.add_argument(
-            "--naming-scheme",
-            action="store",
-            type=str,
-            dest="naming_scheme",
-            default="simple",
-            help="",
-        )
-        self.arg_parser.add_argument(
-            "--use-number-prefix",
-            action="store",
-            type=str,
-            dest="use_number_prefix",
-            default=False,
-            help="",
-        )
-        self.arg_parser.add_argument(
             "--name-template",
             action="store",
             type=str,
@@ -261,6 +241,14 @@ class BatchExporter(inkex.Effect):
             type=int,
             dest="number_start",
             default="0",
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--hierarchy-separator",
+            action="store",
+            type=str,
+            dest="hierarchy_separator",
+            default="_",
             help="",
         )
 
@@ -330,6 +318,8 @@ class BatchExporter(inkex.Effect):
 
         doc = self.create_base_export_document()
         
+        # TODO Json manifest
+
         """
         # For each layer export a file
         for layer_id, layer_label, layer_type, parents in layers:
@@ -490,6 +480,7 @@ class BatchExporter(inkex.Effect):
         svg_layers = self.working_doc.xpath(
             '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
         )
+
         layers = []
 
         for layer in svg_layers:
@@ -508,14 +499,6 @@ class BatchExporter(inkex.Effect):
                 parents.append(parent.attrib["id"])
                 parent = parent.getparent()
 
-            # Ignore hidden layers TODO
-            # if skip_hidden_layers and "style" in layer.attrib:
-            #     if "display:none" in layer.attrib["style"]:
-            #         logging.debug(
-            #             "  Skip: [{}]".format(layer.attrib[label_attrib_name])
-            #         )
-            #         continue
-
             layer_id = layer.attrib["id"]
             layer_label = layer.attrib[label_attrib_name]
             layer_type = "export"
@@ -525,7 +508,8 @@ class BatchExporter(inkex.Effect):
 
         logging.debug("  TOTAL NUMBER OF LAYERS: {}\n".format(len(layers)))
         logging.debug(layers)
-        # TODO return Json
+
+        # self._debug_svg_doc_wait(doc)
         return layers
 
     def create_base_export_document(self):
@@ -639,6 +623,8 @@ class BatchExporter(inkex.Effect):
         command.append("--export-filename=%s" % output_path)
         command.append(svg_path)
         logging.debug("{}\n".format(command))
+
+        # TODO Create folders path
 
         try:
             if use_logging:

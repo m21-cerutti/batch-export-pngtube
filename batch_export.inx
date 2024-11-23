@@ -38,10 +38,10 @@
     <page name="controls" gui-text="Controls">
 
       <label appearance="header">Skip options:</label>
-      <param name="help" type="description" indent="1">This options will skip and not handle</param>
+      <param name="help" type="description" indent="1">This options will skip and not handle the elements filter by those rules.</param>
       <param name="using-clones" type="bool" gui-text="Using clones" gui-description="" indent="1">true</param>
       <param name="skip-hidden-layers" type="bool" gui-text="Skip hidden layers" indent="1">false</param>
-      <param name="skip-prefix" type="string" gui-text="Skip prefix" indent="1">[skip]</param>
+      <param name="skip-prefix" type="string" gui-text="Skip prefix: " indent="1">[skip]</param>
       <separator/>
       <spacer/>
 
@@ -74,32 +74,32 @@
 
 
     <page name="naming" gui-text="File naming">
-      <param name="naming-scheme" type="enum" gui-text="Use naming scheme:">
-        <item value="simple">Simple</item>
-        <item value="advanced">Advanced</item>
-      </param>
+      <label appearance="header">Options</label>
+      <param name="number-start" type="int" min="0" max="9999" gui-text="Start at:">0</param>
       <separator/>
       <spacer/>
 
-      <label appearance="header">Simple naming</label>
-      <param name="help" type="description" indent="1">The exported files will have the same name as each layer.</param>
-      <param name="use-number-prefix" type="bool" gui-text="Add number as prefix" indent="1">true</param>
-      <separator/>
-      <spacer/>
+      <label appearance="header">Naming scheme</label>
 
-      <label appearance="header">Advanced naming</label>
-
+      <param name="help" type="description" indent="1">Hierarchy separator:</param>
+      <param name="hierarchy-separator" type="string" gui-text="" indent="1">_</param>
       <param name="help" type="description" indent="1">Define custom naming scheme:</param>
-      <param name="name-template" type="string" gui-text="" indent="1">[LAYER_NAME]</param>
+      <param name="name-template" type="string" gui-text="" indent="1">[NUM][HIERARCHY][LAYER_NAME]</param>
+
       <param name="help" type="description" indent="1">Tags you can use:</param>
+      <param name="help" type="description" indent="2">- [HIERARCHY] - replaced by the ancestor layers in the hierarchy</param>
+      <param name="help" type="description" indent="3"> "Hierarchy separator" will surround it and separate each ancestor</param>
+      <param name="help" type="description" indent="3"> If empty, would be one hierarchy separator only</param>
       <param name="help" type="description" indent="2">- [LAYER_NAME] - replaced by the name of each layer</param>
       <param name="help" type="description" indent="2">- [NUM] - replaced by increasing numbers [1 ...]</param>
       <param name="help" type="description" indent="2">- [NUM-1], [NUM-2], [NUM-3], [NUM-4] and [NUM-5]</param>
       <param name="help" type="description" indent="3">ex. [NUM-2] - replaced by increasing numbers with 2 digits [00 .. 99]</param>
       <param name="help" type="description" indent="2">- Any text you want.</param>
       <param name="help" type="description" indent="3">ex. design [LAYER_NAME]</param>
-      <separator/>
-      <param name="number-start" type="int" min="0" max="9999" gui-text="Start at:">0</param>
+      <spacer/>
+      <param name="help" type="description" indent="1">ex. with "_" separator on </param>
+      <param name="help" type="description" indent="2">[NUM][HIERARCHY][LAYER_NAME]-testX</param>
+      <param name="help" type="description" indent="2">5_Ancestor1_Ancestor2_LayerName-testX</param>
     </page>
 
     <page name="help" gui-text="Help">
@@ -113,7 +113,7 @@
 
       <label appearance="header">Thank you!</label>
       <param name="help" type="description" indent="1">If this extension has helped you please consider supporting it and give it a star on Github.</param>
-      <param name="help" type="description" indent="1">https://github.com/m21-cerutti/batch-export-pngtube</param>
+      <param name="help" type="description" indent="1" appearance="url">https://github.com/m21-cerutti/batch-export-pngtube</param>
     </page>
   </param>
 
