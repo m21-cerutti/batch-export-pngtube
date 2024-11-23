@@ -1,11 +1,9 @@
 #! /usr/bin/env python
 
-import sys
 import inkex
 import os
 import subprocess
 import tempfile
-import shutil
 import copy
 import logging
 
@@ -24,17 +22,10 @@ class Options:
         self.overwrite_files = self._str_to_bool(batch_exporter.options.overwrite_files)
 
         # Controls page
-        self.use_background_layers = self._str_to_bool(
-            batch_exporter.options.use_background_layers
-        )
         self.skip_hidden_layers = self._str_to_bool(
             batch_exporter.options.skip_hidden_layers
         )
         self.using_clones = self._str_to_bool(batch_exporter.options.using_clones)
-        hierarchical_layers = batch_exporter.options.hierarchical_layers
-        self.hierarchical_layers = False
-        if hierarchical_layers == "hierarchical":
-            self.hierarchical_layers = True
 
         # Export size page
         self.export_area_type = batch_exporter.options.export_area_type
@@ -75,10 +66,8 @@ class Options:
         print += "Path: {}\n".format(self.output_path)
         print += "Overwrite files: {}\n".format(self.overwrite_files)
         print += "\n======> Controls page\n"
-        print += "Use background layers: {}\n".format(self.use_background_layers)
         print += "Skip hidden layers: {}\n".format(self.skip_hidden_layers)
         print += "Using clones: {}\n".format(self.using_clones)
-        print += "Hierarchical layers: {}\n".format(self.hierarchical_layers)
         print += "\n======> Export size page\n"
         print += "Export area type: {}\n".format(self.export_area_type)
         print += "Export area size: {}\n".format(self.export_area_size)
@@ -152,18 +141,6 @@ class BatchExporter(inkex.Effect):
         )
 
         # Controls page
-
-        # TODO Uselesss ?
-        self.arg_parser.add_argument(
-            "--use-background-layers",
-            action="store",
-            type=str,
-            dest="use_background_layers",
-            default=False,
-            help="",
-        )
-
-        # TODO To precise behavior, ignore vs invisible vs background vs OnlyName
         self.arg_parser.add_argument(
             "--skip-hidden-layers",
             action="store",
@@ -179,16 +156,6 @@ class BatchExporter(inkex.Effect):
             dest="using_clones",
             default=False,
             help="",
-        )
-
-        # TODO Uselesss ?
-        self.arg_parser.add_argument(
-            "--hierarchical-layers",
-            action="store",
-            type=str,
-            dest="hierarchical_layers",
-            default="solo",
-            help="Is this working?",
         )
 
         # TODO add prefix ignore layer
@@ -314,11 +281,16 @@ class BatchExporter(inkex.Effect):
 
         counter = options.number_start
 
-        # Get the layers from the current file
-        layers = self.get_layers(
-            options.skip_hidden_layers, options.use_background_layers
-        )
+        # Replace or delete clones
+        # TODO
 
+        # Delete skip branches
+        # TODO
+
+        # Get the layers selected
+        layers = self.get_layers(options.skip_hidden_layers)
+
+        """
         # For each layer export a file
         for layer_id, layer_label, layer_type, parents in layers:
             if layer_type == "fixed":
@@ -380,6 +352,8 @@ class BatchExporter(inkex.Effect):
             os.remove(temporary_file_path)
 
             counter += 1
+        """
+
 
     def get_layers(self, skip_hidden_layers, use_background_layers):
         svg_layers = self.document.xpath(
@@ -413,13 +387,7 @@ class BatchExporter(inkex.Effect):
 
             layer_id = layer.attrib["id"]
             layer_label = layer.attrib[label_attrib_name]
-
-            # Checking for background (fixed) layers
-            if use_background_layers and layer_label.lower().startswith("[fixed] "):
-                layer_type = "fixed"
-                layer_label = layer_label[8:]
-            else:
-                layer_type = "export"
+            layer_type = "export"
 
             logging.debug("  Use : [{}, {}]".format(layer_label, layer_type))
             layers.append([layer_id, layer_label, layer_type, parents])
@@ -456,9 +424,7 @@ class BatchExporter(inkex.Effect):
         return command
 
     # Delete/Hide unwanted layers to create a clean svg file that will be exported
-    def manage_layers(
-        self, target_layer_id, show_layer_ids, hierarchical_layers, hide_layers
-    ):
+    def manage_layers(self, target_layer_id, show_layer_ids, hide_layers):
         # Create a copy of the current document
         doc = copy.deepcopy(self.document)
         target_layer_found = False
@@ -489,14 +455,14 @@ class BatchExporter(inkex.Effect):
 
         # Add the target layer as the single layer in the document
         # This option is used, only when all the layers are deleted above
-        if not hierarchical_layers:
-            root = doc.getroot()
-            if target_layer == None:
-                logging.debug(
-                    "    Error: Target layer not found [{}]".format(show_layer_ids[0])
-                )
-            target_layer.attrib["style"] = "display:inline"
-            root.append(target_layer)
+        # TODO verify it
+        root = doc.getroot()
+        if target_layer == None:
+            logging.debug(
+                "    Error: Target layer not found [{}]".format(show_layer_ids[0])
+            )
+        target_layer.attrib["style"] = "display:inline"
+        root.append(target_layer)
 
         # Save the data in a temporary file
         with tempfile.NamedTemporaryFile(delete=False) as temporary_file:

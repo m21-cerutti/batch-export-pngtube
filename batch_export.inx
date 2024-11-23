@@ -36,11 +36,6 @@
     <page name="controls" gui-text="Controls">
 
       <label appearance="header">Options</label>
-      <param name="hierarchical-layers" type="enum" gui-text="Layer export mode:" indent="1">
-        <item value="solo">Export each layer as a single layer</item>
-        <item value="hierarchical">Use parent layers as background layers</item>
-      </param>
-      <param name="use-background-layers" type="bool" gui-text="Use background layers" indent="1">false</param>
       <param name="skip-hidden-layers" type="bool" gui-text="Skip hidden layers" indent="1">false</param>
       <param name="using-clones" type="bool" gui-text="Using clones" gui-description="It is recommended to unlink clones recursively(this will break clones) and leave this option unticked." indent="1">false</param>
 
