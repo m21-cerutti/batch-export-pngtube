@@ -271,6 +271,21 @@ class BatchExporter(inkex.Effect):
             "--tab", action="store", type=str, dest="tab", default="controls", help=""
         )
 
+    def _debug_svg_doc_wait(self, doc):
+        # Can't use delete=True, delete_on_close=False, since Inkscape use python 2.7
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".svg") as temporary_file:
+            doc.write(temporary_file.name)
+            temporary_file.close()
+
+            logging.debug("    Debug temp file {}".format(temporary_file.name))
+
+            with subprocess.Popen(
+                ["start", "/WAIT", temporary_file.name], shell=True
+            ) as proc:
+                proc.wait()
+
+            os.remove(temporary_file.name)
+
     def effect(self):
         # Check user options
         options = Options(self)
