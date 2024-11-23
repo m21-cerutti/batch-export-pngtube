@@ -327,6 +327,8 @@ class BatchExporter(inkex.Effect):
 
         # Get the layers selected
         layers = self.get_layers()
+
+        doc = self.create_base_export_document()
         
         """
         # For each layer export a file
@@ -525,6 +527,23 @@ class BatchExporter(inkex.Effect):
         logging.debug(layers)
         # TODO return Json
         return layers
+
+    def create_base_export_document(self):
+        doc = copy.deepcopy(self.working_doc)
+
+        to_delete = []
+
+        # Remove all elements with a name (make a white document with options)
+        for element in doc.getroot().getchildren():
+            label_attrib_name = "{%s}label" % element.nsmap["inkscape"]
+            if label_attrib_name not in element.attrib:
+                continue
+            to_delete.append(element)
+
+        for element in to_delete:
+            doc.getroot().remove(element)
+
+        return doc
 
     def build_partial_command(self, options):
         command = ["inkscape", "--vacuum-defs"]
