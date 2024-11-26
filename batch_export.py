@@ -8,7 +8,7 @@ import tempfile
 import copy
 import logging
 from collections import deque
-from tkinter import messagebox
+import json
 
 
 def user_error(title, msg):
@@ -53,6 +53,9 @@ class Options:
         self.use_ignored_name = self._str_to_bool(
             batch_exporter.options.use_ignored_name
         )
+        self.child_layers_visible = self._str_to_bool(
+            batch_exporter.options.child_layers_visible
+        )
 
         # Export size page
         self.export_area_type = batch_exporter.options.export_area_type
@@ -64,8 +67,15 @@ class Options:
 
         # File naming page
         self.hierarchy_separator = batch_exporter.options.hierarchy_separator
+        self.separator_strategy = batch_exporter.options.separator_strategy
+        self.empty_extra_separator = self._str_to_bool(
+            batch_exporter.options.empty_extra_separator
+        )
         self.name_template = batch_exporter.options.name_template
         self.number_start = batch_exporter.options.number_start
+        self.top_hierarchy_first = self._str_to_bool(
+            batch_exporter.options.top_hierarchy_first
+        )
 
         # Threads page
         self.number_threads = batch_exporter.options.number_threads
@@ -101,6 +111,7 @@ class Options:
         print += "Select beahavior: {}\n".format(self.select_behavior)
         print += "Ignore prefix: {}\n".format(self.ignore_prefix)
         print += "Use ignored name (no prefix): {}\n".format(self.use_ignored_name)
+        print += "Use ignored name (no prefix): {}\n".format(self.child_layers_visible)
         print += "\n======> Export size page\n"
         print += "Export area type: {}\n".format(self.export_area_type)
         print += "Export area size: {}\n".format(self.export_area_size)
@@ -110,6 +121,8 @@ class Options:
         print += "Export res height: {}\n".format(self.export_res_height)
         print += "\n======> File naming page\n"
         print += "Hierarchy separator: {}\n".format(self.hierarchy_separator)
+        print += "Separator strategy: {}\n".format(self.separator_strategy)
+        print += "Empty separator: {}\n".format(self.empty_extra_separator)
         print += "Name template: {}\n".format(self.name_template)
         print += "Start count at: {}\n".format(self.number_start)
         print += "\n======> Threads page\n"
@@ -232,6 +245,14 @@ class BatchExporter(inkex.Effect):
             default=False,
             help="",
         )
+        self.arg_parser.add_argument(
+            "--child-layers-visible",
+            action="store",
+            type=str,
+            dest="child_layers_visible",
+            default=True,
+            help="",
+        )
 
         # Export size page
         self.arg_parser.add_argument(
@@ -306,6 +327,30 @@ class BatchExporter(inkex.Effect):
             type=str,
             dest="hierarchy_separator",
             default="_",
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--separator-strategy",
+            action="store",
+            type=str,
+            dest="separator_strategy",
+            default="both",
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--empty-extra-separator",
+            action="store",
+            type=str,
+            dest="empty_extra_separator",
+            default=False,
+            help="",
+        )
+        self.arg_parser.add_argument(
+            "--top-hierarchy-first",
+            action="store",
+            type=str,
+            dest="top_hierarchy_first",
+            default=False,
             help="",
         )
 
@@ -401,24 +446,23 @@ class BatchExporter(inkex.Effect):
         with ThreadPoolExecutor(max_workers=options.number_threads) as executor:
             files_result = list(
                 executor.map(
-                    self.construct_thread(doc, command, options.use_logging),
+                    self.construct_thread(
+                        doc, command, options.use_logging, options.child_layers_visible
+                    ),
                     layers_export.items(),
                     chunksize=options.chunks_size,
                 )
             )
 
-        for result in files_result:
-            logging.debug(result)
+        # for result in files_result:
+        #     logging.debug(result)
 
         if options.export_manifest:
             logging.debug(
                 "\n---------------------------------------\n===> JSON\n---------------------------------------\n"
             )
-
-            # TODO with Json returned to merge ?
-            # TODO Json reorder per conter
-
-            # TODO Json manifest
+            # Json manifest
+            self.export_manifest(layers_export, options.output_path)
 
     def handles_clones(self, using_clones):
         doc = self.working_doc
@@ -467,6 +511,8 @@ class BatchExporter(inkex.Effect):
                     copy_el = copy.deepcopy(element)
                     if "transform" in clone_infos[2].attrib:
                         copy_el.attrib["transform"] = clone_infos[2].attrib["transform"]
+                    if "style" in clone_infos[2].attrib:
+                        copy_el.attrib["style"] = clone_infos[2].attrib["style"]
 
                     clone_infos[0].remove(clone_infos[2])
                     clone_infos[0].insert(clone_infos[1], copy_el)
@@ -529,11 +575,14 @@ class BatchExporter(inkex.Effect):
             is_parent = any(
                 label_attrib_groupmode in child.attrib
                 and child.attrib[label_attrib_groupmode] == "layer"
+                and not get_name_element(child).startswith(ignore_prefix)
                 for child in layer.getchildren()
             )
 
             if select_behavior == "only-leaf" and is_parent:
-                logging.debug("  Not selected (use only leafs): [{}]".format(layer_label))
+                logging.debug(
+                    "  Not selected (use only leafs): [{}]".format(layer_label)
+                )
                 continue
 
             if layer_label.startswith(ignore_prefix):
@@ -551,6 +600,8 @@ class BatchExporter(inkex.Effect):
                 layer_it = layer_it.getparent()
                 layer_label = get_name_element(layer_it)
 
+            hierarchy = list(reversed(hierarchy))
+
             layer_info = (layer, hierarchy)
             layers_infos.append(layer_info)
 
@@ -565,14 +616,14 @@ class BatchExporter(inkex.Effect):
         layers_export = {}
 
         for layer, hierarchy in layer_infos:
-            path = self.get_path(layer, hierarchy, counter, options)
+            path = self.get_path(hierarchy, counter, options)
 
             # Check if layer have same name or path (with ignored layers)
             if not path in layers_export:
                 layers_export[path] = (layer, hierarchy, counter)
             else:
-                layer_path = ("<").join(hierarchy)
-                layer_path_existing = ("<").join(layers_export[path][1])
+                layer_path = (">").join(hierarchy)
+                layer_path_existing = (">").join(layers_export[path][1])
                 user_error(
                     "Same layer name",
                     "Some layers have the same name, and the same path:\n"
@@ -594,25 +645,57 @@ class BatchExporter(inkex.Effect):
 
         return layers_export
 
-    def get_path(self, layer, hierarchy, counter, options: Options):
+    def get_path(self, hierarchy, counter, options: Options):
         path = options.name_template
 
+        # Ignore self for hierarchy keyword
+        layers_name = hierarchy[-1]
+        layers_hierarchy: list = hierarchy[:-1]
+
+        if not options.top_hierarchy_first:
+            layers_hierarchy = list(reversed(layers_hierarchy))
+
+        # Extra separators conditions
+        add_left_sep = (layers_hierarchy != [] or options.empty_extra_separator) and (
+            options.separator_strategy == "left" or options.separator_strategy == "both"
+        )
+        add_right_sep = (layers_hierarchy != [] or options.empty_extra_separator) and (
+            options.separator_strategy == "right"
+            or options.separator_strategy == "both"
+        )
+        # logging.debug(
+        #     "  Extra separators: [left={}, right={}]".format(
+        #         add_left_sep, add_right_sep
+        #     )
+        # )
+
+        # Add an extra element to add extra separators if empty (but not if both, redundant, or none)
+        if (
+            options.empty_extra_separator
+            and layers_hierarchy == []
+            and options.separator_strategy != "both"
+            and options.separator_strategy != "none"
+        ):
+            layers_hierarchy = [""]
+        if add_left_sep:
+            layers_hierarchy = [""] + layers_hierarchy
+        if add_right_sep:
+            layers_hierarchy = layers_hierarchy + [""]
+
+        # Replace
         path = path.replace(
             "[HIERARCHY]",
             (options.hierarchy_separator).join(
                 [
                     parent_name.removeprefix(options.ignore_prefix)
-                    for parent_name in [""]
-                    + hierarchy[1:]
-                    + [""]  # Ignore self but add surroundings separator
+                    for parent_name in layers_hierarchy
                     if options.use_ignored_name
                     or not parent_name.startswith(options.ignore_prefix)
                 ]
             ),
         )
-        path = path.replace("[LAYER_NAME]", hierarchy[0])
-        path = os.path.normpath(path)
 
+        path = path.replace("[LAYER_NAME]", layers_name)
         path = path.replace("[NUM]", str(counter))
         path = path.replace("[NUM-1]", str(counter).zfill(1))
         path = path.replace("[NUM-2]", str(counter).zfill(2))
@@ -620,7 +703,10 @@ class BatchExporter(inkex.Effect):
         path = path.replace("[NUM-4]", str(counter).zfill(4))
         path = path.replace("[NUM-5]", str(counter).zfill(5))
         path = "{}.{}".format(path, options.export_type)
+        # Special case user separator break local path
+        path = path.removeprefix("/").removeprefix("\\")
         destination_path = os.path.join(options.output_path, path)
+        destination_path = os.path.normpath(destination_path)
         return destination_path
 
     def create_base_export_document(self):
@@ -665,27 +751,38 @@ class BatchExporter(inkex.Effect):
 
         return command
 
-    def construct_thread(self, doc, base_command, use_logging):
-        def export_layer_threaded(layer_infos):
+    def construct_thread(self, doc, base_command, use_logging, child_visible):
+        def export_layer_threaded(layer_export):
             export_doc = copy.deepcopy(doc)
 
-            path, (layer, hierarchy, counter) = layer_infos
+            path, (layer, hierarchy, counter) = layer_export
+            layer = copy.deepcopy(layer)
 
             # Add the layer inside fresh document
             root = export_doc.getroot()
             layer.attrib["style"] = "display:inline"
             root.append(layer)
 
+            svg_layers = export_doc.xpath(
+                '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
+            )
+
+            if child_visible:
+                for element in svg_layers:
+                    if "style" not in element.attrib:
+                        continue
+                    element.attrib["style"] = "display:inline"
+
+            # self._debug_svg_doc_wait(export_doc)
+
             # Save the data in a temporary file
             with tempfile.NamedTemporaryFile(
                 delete=False, suffix=".svg"
             ) as temporary_file:
 
-                logging.debug("    Creating temp file {}".format(temporary_file.name))
                 export_doc.write(temporary_file.name)
                 temporary_file.close()
 
-                logging.debug("  Exporting {}".format(path))
                 self.export_to_file(
                     base_command.copy(),
                     temporary_file.name,
@@ -701,7 +798,7 @@ class BatchExporter(inkex.Effect):
     def export_to_file(self, command, svg_path, output_path, use_logging):
         command.append("--export-filename=%s" % output_path)
         command.append(svg_path)
-        logging.debug("{}\n".format(command))
+        logging.debug("  {}\n{}\n".format(output_path, command))
 
         # Create the output folder if it doesn't exist
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -722,6 +819,42 @@ class BatchExporter(inkex.Effect):
             user_error(
                 "OS Error exporting", "Error while exporting file {}.".format(command)
             )
+
+    def export_manifest(self, layer_exports, output_path):
+        json_root = []
+        for path, (_, hierarchy, counter) in layer_exports.items():
+            json_element, all_children = self.create_json_elements(json_root, hierarchy)
+            json_root = all_children
+
+            json_element["relative_path"] = path
+            json_element["order"] = counter
+
+        manifest_path = os.path.join(output_path, "manifest.json")
+        logging.debug("  Export manifest to {}\n".format(manifest_path))
+        with open(manifest_path, "w+", encoding="utf-8") as f:
+            json.dump(json_root, f, ensure_ascii=False, indent=4)
+
+    def create_json_elements(self, parent_children, hierarchy, parent=None):
+        if hierarchy == []:
+            return (parent, parent_children)
+
+        element_name = hierarchy[0]
+        ancestors = hierarchy[1:]
+
+        json_element = next(
+            (el for el in parent_children if el["name"] == element_name), None
+        )
+
+        if json_element == None:
+            json_element = {"name": element_name, "children": []}
+            parent_children.append(json_element)
+
+        (leaf, children) = self.create_json_elements(
+            json_element["children"], ancestors, json_element
+        )
+        json_element["children"] = children
+
+        return (leaf, parent_children)
 
 
 def _main():
