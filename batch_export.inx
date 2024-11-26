@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
-  <_name>Batch export PNGTUBE</_name>
-  <id>org.domain.sub-domain.batch.export</id>
+  <_name>Dulahan - Batch export layers</_name>
+  <id>org.dulahan</id>
   <dependency type="executable" location="extensions">batch_export.py</dependency>
 
-  <label>Export each layer as a different file, handle also hierarchy for PNGTube software.</label>
+  <label>Export each layer as a different file and handle also hierarchy for complex PNGTube software.</label>
   <param name="tab" type="notebook">
     <page name="export-file" gui-text="Export file">
 
@@ -51,7 +51,7 @@
         <item value="only-leaf">OnlyLeaf</item>
         <item value="parents-and-leaf">ParentsAndLeaf</item>
       </param>
-      <param name="child-layers-visible" type="bool" gui-text="Child layers always visible" indent="1">true</param>
+      <param name="child-layers-visible" type="bool" gui-text="Children layers always visible" indent="1">true</param>
       <param name="ignore-prefix" type="string" gui-text="Ignore prefix: " indent="1">_</param>
       <param name="use-ignored-name" type="bool" gui-text="Use ignored for hierarchy name (without prefix)" indent="1">false</param>
     </page>
@@ -135,7 +135,7 @@
 
       <label appearance="header">Thank you!</label>
       <param name="help" type="description" indent="1">If this extension has helped you please consider supporting it and give it a star on Github.</param>
-      <param name="help" type="description" indent="1" appearance="url">https://github.com/m21-cerutti/batch-export-pngtube</param>
+      <param name="help" type="description" indent="1" appearance="url">https://github.com/m21-cerutti/dulahan-plugin</param>
     </page>
   </param>
 

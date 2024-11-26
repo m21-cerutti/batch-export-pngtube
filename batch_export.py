@@ -715,6 +715,7 @@ class BatchExporter(inkex.EffectExtension):
             copy_layer = copy.deepcopy(layer)
 
             # Add the layer inside fresh document
+            # TODO doesn't handle layer styling
             root = export_doc.getroot()
 
             # Handle transform hierarchy

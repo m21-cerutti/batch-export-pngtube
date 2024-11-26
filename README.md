@@ -1,22 +1,64 @@
+
+
 <p align="center">
     <img alt="logo" src="images/banner.png">
 </p>
 
-This extension will help you export your work easier:
+Based on great [Batch Export Plugin](https://github.com/StefanTraistaru/batch-export), for simpler export you could use it instead.
+
+This extension will help you export your model easily when you have a complex hierarchy for PNGTube software ([PNGTuber+](https://kaiakairos.itch.io/pngtuber-plus), [PNGTuber-Remix](https://mudkipworld.itch.io/pngremix), ...):
 - Supports multiple export file formats (SVG, PNG, PS, EPS, PDF, EMF, WMF, XAML).
-- Export each layer as a separate file.
-- Choose which layers to export.
+- Export each layer selected with some rules as a separate file.
 - Automated file naming.
-- Configure background layers.
+- Parrallel export support.
+- Manifest JSON.
 
 ![Inkscape view](images/inkscape_main_view.png)
+![Exported files](images/exported_files.png)
+Asset used from [PNGTuber-Remix]([images/inkscape_main_view.png](https://github.com/MudkipWorld/PNGTuber-Remix)), special thanks to its author [MudkipWorld](https://github.com/MudkipWorld).
 
-# Install
+
+<!-- omit in toc -->
+## Summary
+- [Prerequisites](#prerequisites)
+- [Install](#install)
+  - [Linux](#linux)
+  - [Windows](#windows)
+- [Usage](#usage)
+    - [Export file](#export-file)
+      - [Export parameters](#export-parameters)
+      - [Layers parameters](#layers-parameters)
+    - [Controls](#controls)
+      - [Skip options](#skip-options)
+      - [Select options](#select-options)
+    - [Export size](#export-size)
+      - [Export area](#export-area)
+      - [Export resolution](#export-resolution)
+    - [File naming](#file-naming)
+      - [Naming scheme](#naming-scheme)
+      - [Counter options](#counter-options)
+      - [Hierarchy options](#hierarchy-options)
+    - [Threads](#threads)
+      - [Threads parameters](#threads-parameters)
+    - [Help](#help)
+      - [Help parameters](#help-parameters)
+- [Result](#result)
+- [Contribute \&\& License](#contribute--license)
+  - [Windows tips](#windows-tips)
+- [Become a supporter 🙌](#become-a-supporter-)
+
+## Prerequisites
+
+This extension works with **Inkscape 1.4** on Windows 11 with the inkscape installer, and would work on most operating systems. If not please make an issue with the error associated.
+
+## Install
+
 Download this project and copy the extension files (`batch_export.inx` and `batch_export.py`) to the config path of your Inkscape installation.
 
 One simple way of finding the config path is to open Inkscape and go to **Edit > Preferences > System**. The path will be listed in the **User extensions** field. Make sure you restart Inkscape after you copied the extension files at the desired location and the extension will be available in the extensions menu.
 
 ### Linux
+
 The default path on Linux is:
 ```
 ~/.config/inkscape/extensions
@@ -28,111 +70,154 @@ If you installed the flatpak version:
 ```
 
 ### Windows
-The path on Windows 10 is this:
+
+The path on Windows 10 and higher is :
 ```
 C:\Users\[yourWindowsusername]\AppData\Roaming\inkscape\extensions
 ```
 If you don't see the AppData folder, you need to set the windows explorer to show hidden files.
 
-# Usage
+## Usage
+
 After the extension is installed, it can be found in the **Extensions** menu, **Export** submenu.
+![Submenu](images/submenu_export.png)
 
-<img src="images/extension_controls.png" width="48%"></img>
-<img src="images/extension_export.png" width="48%"></img>
+#### Export file
 
-### Controls
+![File](images/extensions_files.png)
 
-* Export parameters
-    * In this section, you can choose to export the layers at your desired location.
-    * The output files can be exported in one of the following formats: SVG, PNG, PS, EPS, PDF, EMF, WMF, XAML.
-    * If you want to export the files in PDF format you can choose the PDF version to be used(1.4 or 1.5).
-    * Choose a layer export mode (this feature is independent from the **Use background layers**):
-        * Export each layer as a single layer - the export file will contain only the objects from this layer
-        * Use parent layers as background layers - the export file will contain the objects from the parent layers as well
+##### Export parameters
+| Name                   | Command         | Description                                                                                                                                                                          |
+| ---------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Export path            | path            | The folder where the files would be exported.                                                                                                                                        |
+| Overwring files        | overwrite-files | Owerwite exisitng files when exporting.                                                                                                                                              |
+| Export manifest (JSON) | export-manifest | Export a JSON file with the layer hierarchy and path of exported file associated. See [Pickle](test/pickle/manifest.json) or [Abstract](test/abstract/manifest.json) for the format. |
 
-* Other options
-    * Check the **Use background layers** options if you want to have one or more layers that will appear in all exports. You also need to name these layers with a fixed tag at the beginning.
-    ```
-    Ex. [fixed] Background
-    ```
-    * If you have any layers that you don't want to be exported, just hide them in the layer panel of Inkscape and then turn on the **Skip hidden layers** option. This way you can have other testing or mockup layers in your file and still be able to export all the others.
-    * If in the export path there are any other files with the same name as one of the exported files, the extension will not overwrite that file, therefore not exporting that particular layer(s). If you don't want this behaviour you can turn on the **Overwrite existing files** option. This option is turned off by default to make sure you don't lose any files by mistake.
-    * Choose the **export plain SVG** option to remove any Inkscape-specific SVG attributes/properties.
-    * **Using clones** - select this option if you are using clones in your document, otherwise only the original object will appear in the exported files.
-        > Selecting this option will result in larger file sizes, so **_I recommend using the following method instead_** if you can:
-        > 1. Create a copy of your Inkscape file so that you don't mess with your current file. (Or simply create a backup as this will break your clones)
-        > 2. Select all objects (Ctrl+Alt+A or Edit->Select All in All Layers should work if there are no locked layers) and use the option Edit->Clone->Unlink Clones recursively.
-        > 3. Use the extension as previously intended, without selecting the "using clones" option.
+##### Layers parameters
+| Name              | Command            | Description                                                       |
+| ----------------- | ------------------ | ----------------------------------------------------------------- |
+| Export layer type | export-type        | Supported formats: SVG, PNG, PS, EPS, PDF, EMF, WMF, XAML.        |
+| PDF Version       | export-pdf-version | PDF version to be used (1.4 or 1.5).                              |
+| Export plain SVG  | export-plain-svg   | Option to remove any Inkscape-specific SVG attributes/properties. |
 
-### Export size
+#### Controls
 
-On the second page you can configure both the area that is exported and the size and resolution of the output file(if it supports it).
-* **Export area**
-    * Page - Area to export is page.
-    * Drawing - Area to export is whole drawing (ignoring page size).
-    * Custom - Define a custom area to export in SVG user units.
-* **Export resolution**
-    * Default - no custom options.
-    * Custom DPI - Resolution for bitmaps and rasterized filters.
-    * Custom size - Set width and height of the output file.
+![Controls](images/extensions_controls.png)
+
+##### Skip options
+
+When skipped, the whole branch would be skipped, even if there is children layers, and would not appear in the exported files.
+
+| Name               | Command            | Description                                                                                                                             |
+| ------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Using clones       | using-clones       | Select this option to not skip clones (original will be copied). Clone of layers will be changed into groups to avoid unwanted exports. |
+| Skip hidden layers | skip-hidden-layers | Skip hidden layers. Use this option if you want what you are currently seing in the ediotr strictly.                                    |
+| Skip prefix        | skip-prefix        | Skip layers with a specific prefix in their name. By default `[skip]`.                                                                  |
+
+##### Select options
+
+When ignored, a layer would not be exported but would appear in the exported files if they are child of an another exported layer.
+
+| Name                           | Command              | Description                                                                                                                                                                          |
+| ------------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Select for exporting...        | select-behavior      | - `OnlyLeaf` when you want only layers that doesn't have **ignored** layers as direct children, <br/>- `ParentsAndLeaf` for the whole layer tree except **ignored** and **skipped**. |
+| Children layers always visible | child-layers-visible | Export the layer with all the children layers visible.                                                                                                                               |
+| Ignore prefix                  | ignore-prefix        | Ignore layers for export with a specific prefix.                                                                                                                                     |
+| Use ignored for hierarchy name | use-ignored-name     | Use ignored name for ``HIERARCHY`` naming (see [Naming section](#hierarchy-options)). Use this options if you want parent layers ignored in the naming for example.                  |
+
+#### Export size
+
+![Size](images/extensions_size.png)
+
+##### Export area
+| Name                    | Command          | Description                                                                                                                                                                             |
+| ----------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Choose export area type | export-area-type | `Page` for exporting the page defined in the document settings. <br/> `Drawing` for exporting the whole drawing (ignoring page size). <br/> `Custom` for exporting a custom area. <br/> |
+| Custom area size        | export-area-size | Used when `Custom` is selected. Would export the rectangle define by **x0:y0:x1:y1**. In the example, a square of 100px.                                                                |
 
 
-<img src="images/extension_naming.png" width="48%"></img>
-<img src="images/extension_help.png" width="48%"></img>
+##### Export resolution
+| Name                   | Command           | Description                                                                                                                                                                     |
+| ---------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Choose resolution type | export-res-type   | - `Default` for using the default document resolution. <br/>- `Custom DPI` for using a custom dpi for export. <br/>- `Custom size` for using a custom width and height (pixel). |
+| Custom DPI             | export-res-dpi    | Used when `Custom DPI` is selected.                                                                                                                                             |
+| Width                  | export-res-width  | Used when `Custom size` is selected.                                                                                                                                            |
+| Height                 | export-res-height | Used when `Custom size` is selected.                                                                                                                                            |
 
-### File naming
+#### File naming
 
-On this page you can choose on of the two systems that can be used for naming files.
+![Naming](images/extensions_naming.png)
 
-* **Simple naming**
-    * This is the default system used to name the exported files.
-    * Each file is named the same as each layer.
-    * Optionally, you can choose to number each file. The number will prefix the layer name.
-    
-* **Advanced naming**
-    * This naming system will allow you more freedom in naming the exported files, but you have to make sure the names will have a correct format according to your OS.
-    * It works by using a user defined custom naming scheme composed of tags and text.
-    * Available tags
-        * [LAYER_NAME] - it will be replaced by the name of each layer.
-        * [NUM] - it will be replaced by an automatically increasing number.
-        * [NUM-1] - same as [NUM], but the numbers range between [1, .., 9].
-        * [NUM-2] - same as [NUM], but the numbers range between [01, .., 99].
-        * [NUM-3] - same as [NUM], but the numbers range between [001, .., 999].
-        * [NUM-4] - same as [NUM], but the numbers range between [0001, .., 9999].
-        * [NUM-5] - same as [NUM], but the numbers range between [00001, .., 99999].
-        * *Be aware!* For example, if you use [NUM-2] to export more than 99 layers, the numbers above 99 will increase normally but they will not keep the same 2 digit syle format. This applies for all [NUM-number] tags and their respectiv max limit.
-    * Apart from tags, you can also enter any custom text that you want
-    * Examples of custom naming schemes
-        * `[NUM] [LAYER_NAME]` will result in "1 layer 1.svg", "2 layer 2.svg".
-        * `design [NUM-2]` will result in "desing 01.svg", "design 02.svg".
-        * `[NUM] haha [LAYER_NAME] -hello- [NUM-4]` will result in "1 haha layer 1 -hello- 0001.svg" (I don't know why would you want to do something like this, but you can :) ).
 
-### Help
+##### Naming scheme
+| Name                 | Command       | Description                                                                                                                                                                                                                                                                                                                  |
+| -------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Custom naming scheme | name-template | Template for constructing the final name. Allowed keywords:<br/>- `HIERARCHY` for the hierarchy of layers, separated by **Hierarchy separator**. <br/>- `LAYER_NAME` for the current layer name when exporting. <br/>- `NUM, NUM-1, ..., NUM-X` the global counter when exporting, X the number of digits, **up to 5**.<br/> |
 
-On this page you can access the logging function of the extension. You can turn on this option and the extension will create a log file at the log file path. If a log file already exists, it will add the new logs at the end of that file. You can optionally choose to overwrite the existing log file. This may be useful if you try to debug the extension or see a more in-depth log of its actions, although I recommend checking the source code for that :).
+##### Counter options
+| Name        | Command      | Description                                 |
+| ----------- | ------------ | ------------------------------------------- |
+| Start count | number-start | The starting number for the global counter. |
 
-# Result
-This is the result of using the extension to export the layers of the [file](test/batch-export-test.svg) shown in the first screenshot. In that file, I have one background layer containing a red rectangle, one testing layer that is hidden and five layers that I want to export.
+
+##### Hierarchy options
+| Name                         | Command               | Description                                                                                                                                                                                                                                                           |
+| ---------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hierarchy separator          | hierarchy-separator   | The separator used between layers by `HIERARCHY` like `...<layer1><separator><layer2>...`                                                                                                                                                                             |
+| Separator strategy           | separator-strategy    | Where to add the separator. <br/> - `right` would alwais add the separator to the right.<br/>- `left` would alwais add the separator to the left.<br/>- `both` would alwais add the separator on both right and left.<br/>- `none` would not add the separator. <br/> |
+| Add extra separator if empty | empty-extra-separator | Add an extra separator if the `HIERARCHY` is empty (if none strategy not selected).                                                                                                                                                                                   |
+| Top hierarchy first          | top-hierarchy-first   | Order as first the top parent of `HIERARCHY`, otherwise the direct parent of the layer would be first.                                                                                                                                                                |
+
+#### Threads
+
+![Threads](images/extensions_threads.png)
+
+##### Threads parameters
+| Name           | Command        | Description                                                                                     |
+| -------------- | -------------- | ----------------------------------------------------------------------------------------------- |
+| Number threads | number-threads | Number of thread used to accelerate the export. Depend on your system and the number of layers. |
+| Chunks size    | chunks-size    | Maximum of export per thread. Depend on your system and the number of layers.                   |
+
+#### Help
+
+![Help](images/extensions_help.png)
+
+##### Help parameters
+| Name                        | Command       | Description                                                                                                                                        |
+| --------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Use logging                 | use-logging   | Debug the export inside a log file. If there is error, it is recommended to retry with this option to send it with the bug report.                 |
+| Overwrite existing log file | overwrite-log | Overwrite the log file, otherwise would append the current execution at the end of the file (watch out to not spam export when using this option). |
+| Log file path               | log-path      | The path of the log file.                                                                                                                          |
+
+## Result
+
+This is the result of using the extension to export the layers of the [file](test/pickle/PickleSVG.svg) shown in the first screenshot.
 
 ![Exported files](images/exported_files.png)
 
-**Disclosure:** Each exported file will only contain the data corresponding to that specific layer and background layers only.
+As you can see it support clones, clipping groups and export of hidden layers to allow a non destructive workflow and allow edition / adding an element to a model. The JSON can be used then if you are making a plugin in your favorite PNGTube software
 
-**Explanation:** An SVG file can contain data that is not visible when displayed as an image. There can be multiple hidden layers in the file, that will not show up when opened with an image viewer, but still take up space in the file. For example, you cand have a file with two layers, layer1 containing a rectangle and layer2 containing a circle. If you hide layer1, save the file as an SVG and open it with an image viewer, only the circle will be displayed, however, the layer containing the rectangle is still in the file, but the image viewer knows not to display it. That means, not only that your file will have a size bigger than it needs to, but will also contain private data that you may not wish to save or share with others.
+You have also others examples in [test/](test/).
 
-This extension will keep the exported files to **minimum size** and keep **your data private** by exporting only the visible data of your work.
+> ⚠️ **However, it is not adapted to scale and have animated elements in it**.
+> The use case is really specific, and you would need third parties animation software after that to make specific element animations, or manually handle it with layers names.
 
-# Notes
-This extension works with **Inkscape 1.0**.
-* ✔️ **Linux** - I have tested it on Linux, using both the version from the ubuntu ppa and the flatpak one.
-* ✔️ **Windows 10** - I have also tested it on Windows 10 with both the version from the Inkscape website and the one from the Microsoft Store.
-* ❓ **macOS** - I do not own any Apple devices, so I cannot tell you if it will work on macOS, although I don't think there might be any compatibility issues. If you have a macOS device, please try it and let me know.
+> 💡 For vector animation you could use different solution others than inkscape like [SVGGator](https://www.svgator.com/), [Cavalry](https://cavalry.scenegroup.co/), [Adobe After Effect](https://www.adobe.com/products/aftereffects.html),...
 
-# License
-This project is licensed under the [MIT](https://github.com/StefanTraistaru/batch-export/blob/master/LICENSE.md) license.
 
-# Become a supporter 🙌
-Help in maintaining this project by giving me a cup of coffee :)
+## Contribute && License
 
-[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=JDW4SPTJACYSJ&source=url)
+Feel free to modify it to suit your needs. If you have tested on others system than windows, feel free to submit a pull request for the code or even the documentation.
+
+See the the [MIT](LICENSE.md) license for more.
+
+### Windows tips
+
+If you want to make some modifications you can use [symlink.py](symlink.py) to make some symlinks and work with your repository. You need to have python installed and in your `PATH` environment variables, and then launch it with admions privileges.
+
+## Become a supporter 🙌
+
+This repositorey have helped you ?
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/X8X6ABO4R)
 

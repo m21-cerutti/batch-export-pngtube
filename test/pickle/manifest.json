@@ -1,0 +1,64 @@
+[
+    {
+        "name": "Model",
+        "children": [
+            {
+                "name": "Body",
+                "children": [],
+                "path": "C:\\Work\\dulahan-plugin\\test\\pickle\\0_Model_Body.png",
+                "order": 0
+            },
+            {
+                "name": "Ears",
+                "children": [],
+                "path": "C:\\Work\\dulahan-plugin\\test\\pickle\\1_Model_Ears.png",
+                "order": 1
+            },
+            {
+                "name": "Head",
+                "children": [
+                    {
+                        "name": "Skin",
+                        "children": [],
+                        "path": "C:\\Work\\dulahan-plugin\\test\\pickle\\2_Model_Head_Skin.png",
+                        "order": 2
+                    },
+                    {
+                        "name": "Mouth",
+                        "children": [
+                            {
+                                "name": "Open",
+                                "children": [],
+                                "path": "C:\\Work\\dulahan-plugin\\test\\pickle\\3_Model_Head_Mouth_Open.png",
+                                "order": 3
+                            },
+                            {
+                                "name": "Close",
+                                "children": [],
+                                "path": "C:\\Work\\dulahan-plugin\\test\\pickle\\4_Model_Head_Mouth_Close.png",
+                                "order": 4
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Eyes",
+                        "children": [
+                            {
+                                "name": "Open",
+                                "children": [],
+                                "path": "C:\\Work\\dulahan-plugin\\test\\pickle\\5_Model_Head_Eyes_Open.png",
+                                "order": 5
+                            },
+                            {
+                                "name": "Close",
+                                "children": [],
+                                "path": "C:\\Work\\dulahan-plugin\\test\\pickle\\6_Model_Head_Eyes_Close.png",
+                                "order": 6
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]

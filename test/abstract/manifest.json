@@ -1,0 +1,59 @@
+[
+    {
+        "name": "Testing",
+        "children": [],
+        "relative_path": "C:\\Work\\batch-export-pngtube\\test\\0_Testing.png",
+        "order": 0
+    },
+    {
+        "name": "Layer 1",
+        "children": [
+            {
+                "name": "Layer 2",
+                "children": [],
+                "relative_path": "C:\\Work\\batch-export-pngtube\\test\\1_Layer 1_Layer 2.png",
+                "order": 1
+            }
+        ]
+    },
+    {
+        "name": "Layer 3",
+        "children": [
+            {
+                "name": "Layer 4",
+                "children": [
+                    {
+                        "name": "Layer 5",
+                        "children": [],
+                        "relative_path": "C:\\Work\\batch-export-pngtube\\test\\2_Layer 3_Layer 4_Layer 5.png",
+                        "order": 2
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "name": "Layer 6 - contains 2 clone from layer 2",
+        "children": [],
+        "relative_path": "C:\\Work\\batch-export-pngtube\\test\\3_Layer 6 - contains 2 clone from layer 2.png",
+        "order": 3
+    },
+    {
+        "name": "Layer 7 - contains 2 clone from layer ignored + opacity handling clipgroup",
+        "children": [],
+        "relative_path": "C:\\Work\\batch-export-pngtube\\test\\4_Layer 7 - contains 2 clone from layer ignored + opacity handling clipgroup.png",
+        "order": 4
+    },
+    {
+        "name": "Layer 8 - contains 2 clone of clone",
+        "children": [],
+        "relative_path": "C:\\Work\\batch-export-pngtube\\test\\5_Layer 8 - contains 2 clone of clone.png",
+        "order": 5
+    },
+    {
+        "name": "Layer 9 - clone hierarchy with layer",
+        "children": [],
+        "relative_path": "C:\\Work\\batch-export-pngtube\\test\\6_Layer 9 - clone hierarchy with layer.png",
+        "order": 6
+    }
+]
