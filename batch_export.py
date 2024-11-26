@@ -11,6 +11,23 @@ from collections import deque
 from tkinter import messagebox
 
 
+def user_error(title, msg):
+    logging.error(msg)
+    user_message = "Error {}:\n{}".format(title, msg)
+    inkex.errormsg(user_message)
+    exit()
+
+
+def get_name_element(element):
+    if element == None:
+        return ""
+    label_attrib_name = "{%s}label" % element.nsmap["inkscape"]
+    if label_attrib_name not in element.attrib:
+        return ""
+    else:
+        return element.attrib[label_attrib_name]
+
+
 class Options:
     def __init__(self, batch_exporter):
         self.current_file = batch_exporter.options.input_file
@@ -68,7 +85,7 @@ class Options:
                 logging.basicConfig(filename=log_file_name, level=logging.DEBUG)
 
     def __str__(self):
-        print = "===> EXTENSION PARAMETERS\n"
+        print = "\n===> EXTENSION PARAMETERS\n"
         print += "Current file: {}\n".format(self.current_file)
         print += "\n======> Export file page\n"
         print += "Export type: {}\n".format(self.export_type)
@@ -370,88 +387,38 @@ class BatchExporter(inkex.Effect):
         self.delete_skipped_layers(options.skip_hidden_layers, options.skip_prefix)
 
         # Get the layers selected
-        layers_infos = self.get_layers(
-            options.select_behavior, options.ignore_prefix, options.use_ignored_name
-        )
+        layers_infos = self.get_layers(options.select_behavior, options.ignore_prefix)
 
-        layers = self.fill_and_check_paths(layers_infos, options.number_start)
-
-        # TODO Test duplicate names
+        # Construct and path (duplicate names, file exists)
+        layers_export = self.fill_and_check_paths(layers_infos, options)
 
         doc = self.create_base_export_document()
 
+        logging.debug(
+            "\n---------------------------------------\n===> EXPORT PARALLEL\n---------------------------------------\n"
+        )
+        files_result = []
         with ThreadPoolExecutor(max_workers=options.number_threads) as executor:
             files_result = list(
                 executor.map(
                     self.construct_thread(doc, command, options.use_logging),
-                    layers,
+                    layers_export.items(),
                     chunksize=options.chunks_size,
                 )
             )
-            
-        # TODO with Json returned to merge ?
 
-        # TODO Json manifest
+        for result in files_result:
+            logging.debug(result)
 
-        """
-        # For each layer export a file
-        for layer_id, layer_label, layer_type, parents in layers:
-            if layer_type == "fixed":
-                continue
-
-            show_layer_ids = [
-                layer[0]
-                for layer in layers
-                if layer[2] == "fixed" or layer[0] == layer_id
-            ]
-
-            # Create the output folder if it doesn't exist
-            if not os.path.exists(os.path.join(options.output_path)):
-                os.makedirs(os.path.join(options.output_path))
-
-            # Construct the name of the exported file
-            if options.naming_scheme == "simple":
-                file_name = self.get_simple_name(
-                    options.use_number_prefix, counter, layer_label
-                )
-            else:
-                file_name = self.get_advanced_name(
-                    options.name_template, counter, layer_label
-                )
-            file_name = "{}.{}".format(file_name, options.export_type)
-            logging.debug("  File name: {}".format(file_name))
-
-            # Check if the file exists. If not, export it.
-            destination_path = os.path.join(options.output_path, file_name)
-            if not options.overwrite_files and os.path.exists(destination_path):
-                logging.debug("  File already exists: {}\n".format(file_name))
-                # TODO: Should this be the expected functionality of this scenario?
-                counter += 1
-                continue
-
-            # Create a new file in which we delete unwanted layers to keep the exported file size to a minimum
-            logging.debug("  Preparing layer [{}]".format(layer_label))
-            temporary_file_path = self.manage_layers(
-                layer_id,
-                show_layer_ids,
-                options.hierarchical_layers,
-                options.using_clones,
+        if options.export_manifest:
+            logging.debug(
+                "\n---------------------------------------\n===> JSON\n---------------------------------------\n"
             )
 
-            # Export to file
-            logging.debug("  Exporting [{}] as {}".format(layer_label, file_name))
-            self.export_to_file(
-                command.copy(),
-                temporary_file_path,
-                destination_path,
-                options.use_logging,
-            )
+            # TODO with Json returned to merge ?
+            # TODO Json reorder per conter
 
-            # Clean up - delete the temporary file we have created
-            os.remove(temporary_file_path)
-
-            counter += 1
-        """
+            # TODO Json manifest
 
     def handles_clones(self, using_clones):
         doc = self.working_doc
@@ -518,14 +485,11 @@ class BatchExporter(inkex.Effect):
         layers_skipped = deque()
 
         for layer in svg_layers:
-            label_attrib_name = "{%s}label" % layer.nsmap["inkscape"]
-            if label_attrib_name not in layer.attrib:
+            layer_label = get_name_element(layer)
+            if layer_label == "":
                 continue
 
             parent = layer.getparent()
-
-            layer_id = layer.attrib["id"]
-            layer_label: str = layer.attrib[label_attrib_name]
 
             # Delete hidden layers
             if layer_label.startswith(skip_prefix) or (
@@ -534,7 +498,7 @@ class BatchExporter(inkex.Effect):
                 and "display:none" in layer.attrib["style"]
             ):
 
-                logging.debug("  Skip: [{}]".format(layer.attrib[label_attrib_name]))
+                logging.debug("  Skip: [{}]".format(layer_label))
                 layers_skipped.appendleft([parent, layer])
 
         logging.debug(
@@ -547,17 +511,17 @@ class BatchExporter(inkex.Effect):
 
         # self._debug_svg_doc_wait(doc)
 
-    def get_layers(self, select_behavior, ignore_prefix, use_ignored):
+    def get_layers(self, select_behavior, ignore_prefix):
         doc = self.working_doc
         svg_layers = doc.xpath(
             '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
         )
 
-        layers = []
+        layers_infos = []
 
         for layer in svg_layers:
-            label_attrib_name = "{%s}label" % layer.nsmap["inkscape"]
-            if label_attrib_name not in layer.attrib:
+            layer_label = get_name_element(layer)
+            if layer_label == "":
                 continue
 
             # Check if parent
@@ -569,45 +533,95 @@ class BatchExporter(inkex.Effect):
             )
 
             if select_behavior == "only-leaf" and is_parent:
+                logging.debug("  Not selected (use only leafs): [{}]".format(layer_label))
                 continue
 
-            layer_label = layer.attrib[label_attrib_name]
             if layer_label.startswith(ignore_prefix):
+                logging.debug("  Ignored (prefix): [{}]".format(layer_label))
                 continue
 
-            # Get layer parents
-            parents = []
-            parent = layer.getparent()
-            while label_attrib_name in parent.attrib:
-                name_parent = parent.attrib[label_attrib_name]
-                # TODO Keep ignored to make errors
-                if not name_parent.startswith(ignore_prefix) or use_ignored:
-                    parents.append(name_parent)
-                parent = parent.getparent()
+            # Get layer hierarchy (including self)
+            hierarchy = []
 
-            layer_id = layer.attrib["id"]
-            layer_label = layer.attrib[label_attrib_name]
-            layer_type = "export"
+            layer_it = layer
+            layer_label = get_name_element(layer_it)
+            while layer_label != "":
+                # Keep ignored to make errors
+                hierarchy.append(layer_label)
+                layer_it = layer_it.getparent()
+                layer_label = get_name_element(layer_it)
 
-            # TODO Debug ignored instead
-            logging.debug("  Use: [{}, {}]".format(layer_label, layer_type))
-            layer_info = (layer, parents)  # filename ?
-            layers.append([layer_id, layer_label, layer_type, parents, layer])
+            layer_info = (layer, hierarchy)
+            layers_infos.append(layer_info)
 
-        logging.debug("  TOTAL NUMBER OF LAYERS: {}\n".format(len(layers)))
-        logging.debug(layers)
+        logging.debug("  TOTAL NUMBER OF LAYERS: {}\n".format(len(layers_infos)))
 
         # self._debug_svg_doc_wait(doc)
-        return layers
+        return layers_infos
 
-    def fill_and_check_paths(self, layer_infos, number_start):
+    def fill_and_check_paths(self, layer_infos, options: Options):
+        counter = options.number_start
 
-        # TODO Test duplicate names/path
-        logging.error("User error ?")
-        messagebox.showerror(title="User error", message="Test")
-        logging.error("User error 2 ?")
+        layers_export = {}
 
-        return []
+        for layer, hierarchy in layer_infos:
+            path = self.get_path(layer, hierarchy, counter, options)
+
+            # Check if layer have same name or path (with ignored layers)
+            if not path in layers_export:
+                layers_export[path] = (layer, hierarchy, counter)
+            else:
+                layer_path = ("<").join(hierarchy)
+                layer_path_existing = ("<").join(layers_export[path][1])
+                user_error(
+                    "Same layer name",
+                    "Some layers have the same name, and the same path:\n"
+                    "{}\n{}\nPath ->{}\nPlease change names on layers.\n".format(
+                        layer_path, layer_path_existing, path
+                    ),
+                )
+                return {}
+
+            # Check if the file exists. If not, export it.
+            if not options.overwrite_files and os.path.exists(path):
+                user_error(
+                    "File already exists",
+                    f"File {path} already exist, check overwrite files if it's not an error.",
+                )
+                return {}
+
+            counter += 1
+
+        return layers_export
+
+    def get_path(self, layer, hierarchy, counter, options: Options):
+        path = options.name_template
+
+        path = path.replace(
+            "[HIERARCHY]",
+            (options.hierarchy_separator).join(
+                [
+                    parent_name.removeprefix(options.ignore_prefix)
+                    for parent_name in [""]
+                    + hierarchy[1:]
+                    + [""]  # Ignore self but add surroundings separator
+                    if options.use_ignored_name
+                    or not parent_name.startswith(options.ignore_prefix)
+                ]
+            ),
+        )
+        path = path.replace("[LAYER_NAME]", hierarchy[0])
+        path = os.path.normpath(path)
+
+        path = path.replace("[NUM]", str(counter))
+        path = path.replace("[NUM-1]", str(counter).zfill(1))
+        path = path.replace("[NUM-2]", str(counter).zfill(2))
+        path = path.replace("[NUM-3]", str(counter).zfill(3))
+        path = path.replace("[NUM-4]", str(counter).zfill(4))
+        path = path.replace("[NUM-5]", str(counter).zfill(5))
+        path = "{}.{}".format(path, options.export_type)
+        destination_path = os.path.join(options.output_path, path)
+        return destination_path
 
     def create_base_export_document(self):
         doc = copy.deepcopy(self.working_doc)
@@ -616,8 +630,8 @@ class BatchExporter(inkex.Effect):
 
         # Remove all elements with a name (make a white document with options)
         for element in doc.getroot().getchildren():
-            label_attrib_name = "{%s}label" % element.nsmap["inkscape"]
-            if label_attrib_name not in element.attrib:
+            element_label = get_name_element(element)
+            if element_label == "":
                 continue
             to_delete.append(element)
 
@@ -654,18 +668,13 @@ class BatchExporter(inkex.Effect):
     def construct_thread(self, doc, base_command, use_logging):
         def export_layer_threaded(layer_infos):
             export_doc = copy.deepcopy(doc)
-            command = copy.deepcopy(base_command)
+
+            path, (layer, hierarchy, counter) = layer_infos
 
             # Add the layer inside fresh document
-            layer = layer_infos[0]
             root = export_doc.getroot()
             layer.attrib["style"] = "display:inline"
             root.append(layer)
-
-            label_attrib_name = "{%s}label" % layer.nsmap["inkscape"]
-            label = layer[label_attrib_name]
-
-            path = layer_infos[1]
 
             # Save the data in a temporary file
             with tempfile.NamedTemporaryFile(
@@ -676,9 +685,9 @@ class BatchExporter(inkex.Effect):
                 export_doc.write(temporary_file.name)
                 temporary_file.close()
 
-                logging.debug("  Exporting [{}] as {}".format(label, path))
+                logging.debug("  Exporting {}".format(path))
                 self.export_to_file(
-                    command.copy(),
+                    base_command.copy(),
                     temporary_file.name,
                     path,
                     use_logging,
@@ -689,73 +698,13 @@ class BatchExporter(inkex.Effect):
 
         return export_layer_threaded
 
-    """
-    # Delete/Hide unwanted layers to create a clean svg file that will be exported
-    def manage_layers(self, target_layer_id, show_layer_ids, hide_layers):
-        # Create a copy of the current document
-        doc = copy.deepcopy(self.working_doc)
-        target_layer_found = False
-        target_layer = None
-
-        # Iterate through all layers in the document
-        for layer in doc.xpath(
-            '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
-        ):
-            layer_id = layer.attrib["id"]
-            layer_label = layer.attrib["{%s}label" % layer.nsmap["inkscape"]]
-
-            # Store the target layer
-            if not target_layer_found and layer_id == target_layer_id:
-                target_layer = layer
-                target_layer_found = True
-
-            # Hide/Delete unwanted layers - hide for use_with_clones = TRUE
-            if layer_id not in show_layer_ids:
-                if hide_layers:
-                    layer.attrib["style"] = "display:none"
-                    logging.debug("    Hiding: [{}, {}]".format(layer_id, layer_label))
-                else:
-                    layer.getparent().remove(layer)
-                    logging.debug(
-                        "    Deleting: [{}, {}]".format(layer_id, layer_label)
-                    )
-
-        # Add the target layer as the single layer in the document
-        # This option is used, only when all the layers are deleted above
-        # TODO verify it
-        root = doc.getroot()
-        if target_layer == None:
-            logging.debug(
-                "    Error: Target layer not found [{}]".format(show_layer_ids[0])
-            )
-        target_layer.attrib["style"] = "display:inline"
-        root.append(target_layer)
-
-        # Save the data in a temporary file
-        with tempfile.NamedTemporaryFile(delete=False) as temporary_file:
-            logging.debug("    Creating temp file {}".format(temporary_file.name))
-            doc.write(temporary_file.name)
-            return temporary_file.name
-    """
-
-    def get_advanced_name(self, template_name, counter, layer_label):
-        file_name = template_name
-        # TODO hierarchy
-        file_name = file_name.replace("[LAYER_NAME]", layer_label)
-        file_name = file_name.replace("[NUM]", str(counter))
-        file_name = file_name.replace("[NUM-1]", str(counter).zfill(1))
-        file_name = file_name.replace("[NUM-2]", str(counter).zfill(2))
-        file_name = file_name.replace("[NUM-3]", str(counter).zfill(3))
-        file_name = file_name.replace("[NUM-4]", str(counter).zfill(4))
-        file_name = file_name.replace("[NUM-5]", str(counter).zfill(5))
-        return file_name
-
     def export_to_file(self, command, svg_path, output_path, use_logging):
         command.append("--export-filename=%s" % output_path)
         command.append(svg_path)
         logging.debug("{}\n".format(command))
 
-        # TODO Create folders path
+        # Create the output folder if it doesn't exist
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         try:
             if use_logging:
@@ -770,9 +719,9 @@ class BatchExporter(inkex.Effect):
                 ) as proc:
                     proc.wait(timeout=300)
         except OSError:
-            logging.debug("Error while exporting file {}.".format(command))
-            inkex.errormsg("Error while exporting file {}.".format(command))
-            exit()
+            user_error(
+                "OS Error exporting", "Error while exporting file {}.".format(command)
+            )
 
 
 def _main():
