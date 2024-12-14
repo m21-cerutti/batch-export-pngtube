@@ -10,7 +10,7 @@ import logging
 from collections import deque
 import json
 
-
+# TODO Improve tests
 def user_error(title, msg):
     logging.error(msg)
     user_message = "Error {}:\n{}".format(title, msg)
@@ -111,7 +111,7 @@ class Options:
         print += "Select beahavior: {}\n".format(self.select_behavior)
         print += "Ignore prefix: {}\n".format(self.ignore_prefix)
         print += "Use ignored name (no prefix): {}\n".format(self.use_ignored_name)
-        print += "Use ignored name (no prefix): {}\n".format(self.child_layers_visible)
+        print += "Child layers always visible: {}\n".format(self.child_layers_visible)
         print += "\n======> Export size page\n"
         print += "Export area type: {}\n".format(self.export_area_type)
         print += "Export area size: {}\n".format(self.export_area_size)
@@ -511,7 +511,7 @@ class BatchExporter(inkex.Effect):
                     copy_el = copy.deepcopy(element)
                     if "transform" in clone_infos[2].attrib:
                         copy_el.attrib["transform"] = clone_infos[2].attrib["transform"]
-                    if "style" in clone_infos[2].attrib:
+                    if "style" in clone_infos[2].attrib and not clone_infos[2].attrib["style"] == "display:inline;fill:none;stroke:none":
                         copy_el.attrib["style"] = clone_infos[2].attrib["style"]
 
                     clone_infos[0].remove(clone_infos[2])
