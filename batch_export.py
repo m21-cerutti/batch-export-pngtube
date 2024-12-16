@@ -513,6 +513,10 @@ class BatchExporter(inkex.Effect):
                         copy_el.attrib["transform"] = clone_infos[2].attrib["transform"]
                     if "style" in clone_infos[2].attrib and not clone_infos[2].attrib["style"] == "display:inline;fill:none;stroke:none":
                         copy_el.attrib["style"] = clone_infos[2].attrib["style"]
+                    
+                    # Remove layer attrib when cloning
+                    label_attrib_groupmode = "{%s}groupmode" % element.nsmap["inkscape"]
+                    copy_el.attrib[label_attrib_groupmode] = ""
 
                     clone_infos[0].remove(clone_infos[2])
                     clone_infos[0].insert(clone_infos[1], copy_el)
