@@ -7,8 +7,10 @@ import subprocess
 import tempfile
 import copy
 import logging
-from collections import deque
 import json
+from lxml import etree
+from inkex import BaseElement, Use, Layer
+
 
 # TODO Improve tests
 def user_error(title, msg):
@@ -18,14 +20,26 @@ def user_error(title, msg):
     exit()
 
 
+def is_clone(element):
+    if element == None:
+        return False
+    ref_attrib_name = "{%s}href" % element.nsmap["xlink"]
+    return ref_attrib_name in element.attrib
+
+
 def get_name_element(element):
     if element == None:
         return ""
-    label_attrib_name = "{%s}label" % element.nsmap["inkscape"]
-    if label_attrib_name not in element.attrib:
-        return ""
-    else:
-        return element.attrib[label_attrib_name]
+    return element.get("inkscape:label", "")
+
+
+# Get hierarchy names (including self)
+def get_element_hierarchy(element):
+    return list(
+        filter(
+            None, map(get_name_element, reversed([element] + list(element.ancestors())))
+        )
+    )
 
 
 class Options:
@@ -141,7 +155,7 @@ class Options:
         return False
 
 
-class BatchExporter(inkex.Effect):
+class BatchExporter(inkex.EffectExtension):
     def __init__(self):
         """init the effetc library and get options from gui"""
         inkex.Effect.__init__(self)
@@ -465,66 +479,30 @@ class BatchExporter(inkex.Effect):
             self.export_manifest(layers_export, options.output_path)
 
     def handles_clones(self, using_clones):
-        doc = self.working_doc
-        svg_clones = doc.xpath("//svg:use[@xlink:href]", namespaces=inkex.NSS)
+        svg_clones = self.working_doc.xpath(
+            "//svg:use[@xlink:href]", namespaces=inkex.NSS
+        )
 
-        clones_to_replace = {}
+        # Depth first
+        for clone in reversed(svg_clones):
+            if using_clones:
+                copy = clone.unlink()
+                while is_clone(copy):
+                    copy = copy.unlink()
 
-        # Search clones
-        for clone in svg_clones:
-            clone_id = clone.attrib["id"]
-            # Find id ref and remove #
-            ref_attrib_name = "{%s}href" % clone.nsmap["xlink"]
-            clone_ref_id = clone.attrib[ref_attrib_name][1:]
+                # Special case style
+                if float(clone.style.get("opacity", 1)) <= 0.0:
+                    copy.style["opacity"] = 0
+                    copy.style.update(copy.style)
 
-            parent = clone.getparent()
-            index = list(parent).index(clone)
+                # Change layer to group when unlinking
+                for child in copy.iter():
+                    if Layer.is_class_element(child):
+                        child.set("inkscape:groupmode", "")
+            else:
+                clone.delete()
 
-            # Case multiple clones with same original
-            if clone_ref_id not in clones_to_replace.keys():
-                clones_to_replace[clone_ref_id] = []
-
-            logging.debug("  Clone: [{}, {}, {}]".format(clone_id, clone_ref_id, index))
-            clones_to_replace[clone_ref_id].append((parent, index, clone, clone_id))
-
-        if using_clones:
-            self.replace_clones_by_original(clones_to_replace)
-        else:
-            # Delete them to avoid corrupted file
-            for clone_list in reversed(clones_to_replace.values()):
-                for clone_infos in clone_list:
-                    clone_infos[0].remove(clone_infos[2])
-
-        # self._debug_svg_doc_wait(doc)
-        logging.debug("  TOTAL NUMBER OF CLONES: {}\n".format(len(svg_clones)))
-
-    def replace_clones_by_original(self, clones_to_replace):
-        doc = self.working_doc
-        for element in doc.iter():
-            if "id" not in element.attrib:
-                continue
-
-            id = element.attrib["id"]
-            if id in clones_to_replace.keys():
-                for clone_infos in clones_to_replace[id]:
-                    # Replace clone in parent by copy of original
-                    copy_el = copy.deepcopy(element)
-                    if "transform" in clone_infos[2].attrib:
-                        copy_el.attrib["transform"] = clone_infos[2].attrib["transform"]
-                    if "style" in clone_infos[2].attrib and not clone_infos[2].attrib["style"] == "display:inline;fill:none;stroke:none":
-                        copy_el.attrib["style"] = clone_infos[2].attrib["style"]
-                    
-                    # Remove layer attrib when cloning
-                    label_attrib_groupmode = "{%s}groupmode" % element.nsmap["inkscape"]
-                    copy_el.attrib[label_attrib_groupmode] = ""
-
-                    clone_infos[0].remove(clone_infos[2])
-                    clone_infos[0].insert(clone_infos[1], copy_el)
-                    logging.debug("  REPLACE: {}->{}".format(clone_infos[3], id))
-                # Avoid re-apply replace with replaced element
-                del clones_to_replace[id]
-
-        # self._debug_svg_doc_wait(doc)
+        # self._debug_svg_doc_wait(self.working_doc)
 
     def delete_skipped_layers(self, skip_hidden_layers, skip_prefix):
         doc = self.working_doc
@@ -532,33 +510,22 @@ class BatchExporter(inkex.Effect):
         svg_layers = doc.xpath(
             '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
         )
-        layers_skipped = deque()
 
+        nb_skipped = 0
         for layer in svg_layers:
             layer_label = get_name_element(layer)
-            if layer_label == "":
-                continue
 
-            parent = layer.getparent()
-
-            # Delete hidden layers
+            # Delete skip_prefix or hidden layers
             if layer_label.startswith(skip_prefix) or (
                 skip_hidden_layers
                 and "style" in layer.attrib
                 and "display:none" in layer.attrib["style"]
             ):
-
                 logging.debug("  Skip: [{}]".format(layer_label))
-                layers_skipped.appendleft([parent, layer])
+                layer.delete()
+                nb_skipped += 1
 
-        logging.debug(
-            "  TOTAL NUMBER OF LAYERS SKIPPED: {}\n".format(len(layers_skipped))
-        )
-
-        # Delete children before parent
-        for layer_info in reversed(layers_skipped):
-            layer_info[0].remove(layer_info[1])
-
+        logging.debug("  TOTAL NUMBER OF LAYERS SKIPPED: {}\n".format(nb_skipped))
         # self._debug_svg_doc_wait(doc)
 
     def get_layers(self, select_behavior, ignore_prefix):
@@ -574,11 +541,13 @@ class BatchExporter(inkex.Effect):
             if layer_label == "":
                 continue
 
+            if layer_label.startswith(ignore_prefix):
+                logging.debug("  Ignored (prefix): [{}]".format(layer_label))
+                continue
+
             # Check if parent
-            label_attrib_groupmode = "{%s}groupmode" % layer.nsmap["inkscape"]
             is_parent = any(
-                label_attrib_groupmode in child.attrib
-                and child.attrib[label_attrib_groupmode] == "layer"
+                Layer.is_class_element(child)
                 and not get_name_element(child).startswith(ignore_prefix)
                 for child in layer.getchildren()
             )
@@ -589,22 +558,8 @@ class BatchExporter(inkex.Effect):
                 )
                 continue
 
-            if layer_label.startswith(ignore_prefix):
-                logging.debug("  Ignored (prefix): [{}]".format(layer_label))
-                continue
-
             # Get layer hierarchy (including self)
-            hierarchy = []
-
-            layer_it = layer
-            layer_label = get_name_element(layer_it)
-            while layer_label != "":
-                # Keep ignored to make errors
-                hierarchy.append(layer_label)
-                layer_it = layer_it.getparent()
-                layer_label = get_name_element(layer_it)
-
-            hierarchy = list(reversed(hierarchy))
+            hierarchy = get_element_hierarchy(layer)
 
             layer_info = (layer, hierarchy)
             layers_infos.append(layer_info)
@@ -723,10 +678,7 @@ class BatchExporter(inkex.Effect):
             element_label = get_name_element(element)
             if element_label == "":
                 continue
-            to_delete.append(element)
-
-        for element in to_delete:
-            doc.getroot().remove(element)
+            element.delete()
 
         return doc
 
