@@ -9,7 +9,7 @@ import copy
 import logging
 import json
 from lxml import etree
-from inkex import BaseElement, Use, Layer
+from inkex import BaseElement, Use, Layer, Group
 
 
 # TODO Improve tests
@@ -436,6 +436,9 @@ class BatchExporter(inkex.EffectExtension):
         # Is working on self.document is safe ? Security
         self.working_doc = copy.deepcopy(self.document)
 
+        # To remove unecessary transform parents
+        self.bake_transform_document()
+
         # Build the partial inkscape export command
         command = self.build_partial_command(options)
 
@@ -477,6 +480,10 @@ class BatchExporter(inkex.EffectExtension):
             )
             # Json manifest
             self.export_manifest(layers_export, options.output_path)
+
+    def bake_transform_document(self):
+        for element in self.working_doc.xpath("/svg:svg/svg:g", namespaces=inkex.NSS):
+            element.bake_transforms_recursively()
 
     def handles_clones(self, using_clones):
         svg_clones = self.working_doc.xpath(
