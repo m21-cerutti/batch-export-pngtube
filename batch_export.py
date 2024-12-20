@@ -436,9 +436,6 @@ class BatchExporter(inkex.EffectExtension):
         # Is working on self.document is safe ? Security
         self.working_doc = copy.deepcopy(self.document)
 
-        # To remove unecessary transform parents
-        self.bake_transform_document()
-
         # Build the partial inkscape export command
         command = self.build_partial_command(options)
 
@@ -480,10 +477,6 @@ class BatchExporter(inkex.EffectExtension):
             )
             # Json manifest
             self.export_manifest(layers_export, options.output_path)
-
-    def bake_transform_document(self):
-        for element in self.working_doc.xpath("/svg:svg/svg:g", namespaces=inkex.NSS):
-            element.bake_transforms_recursively()
 
     def handles_clones(self, using_clones):
         svg_clones = self.working_doc.xpath(
@@ -718,13 +711,21 @@ class BatchExporter(inkex.EffectExtension):
         def export_layer_threaded(layer_export):
             export_doc = copy.deepcopy(doc)
 
-            path, (layer, hierarchy, counter) = layer_export
-            layer = copy.deepcopy(layer)
+            path, (layer, _, _) = layer_export
+            copy_layer = copy.deepcopy(layer)
 
             # Add the layer inside fresh document
             root = export_doc.getroot()
-            layer.attrib["style"] = "display:inline"
-            root.append(layer)
+
+            # Handle transform hierarchy
+            container = Layer.new("root")
+            parent = layer.getparent()
+            if parent != None:
+                container.transform = parent.composed_transform()
+            root.append(container)
+
+            copy_layer.attrib["style"] = "display:inline"
+            container.append(copy_layer)
 
             svg_layers = export_doc.xpath(
                 '//svg:g[@inkscape:groupmode="layer"]', namespaces=inkex.NSS
