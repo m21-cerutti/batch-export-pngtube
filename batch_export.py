@@ -790,7 +790,7 @@ class BatchExporter(inkex.EffectExtension):
             json_element, all_children = self.create_json_elements(json_root, hierarchy)
             json_root = all_children
 
-            json_element["relative_path"] = path
+            json_element["path"] = path
             json_element["order"] = counter
 
         manifest_path = os.path.join(output_path, "manifest.json")

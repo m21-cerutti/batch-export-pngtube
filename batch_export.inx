@@ -109,16 +109,16 @@
       <label appearance="header">Hierarchy options</label>
       <param name="hierarchy-separator" type="string" gui-text="Hierarchy separator:" indent="1">_</param>
       <param name="separator-strategy" type="enum" gui-text="Separator strategy:" indent="1">
+        <item value="both">Both, will add an extra right and left separator</item>
         <item value="right">Right, will add an extra right separator</item>
         <item value="left">Left, will add an extra right separator</item>
-        <item value="both">Both, will add an extra right and left separator</item>
         <item value="none">None, separators will be inserted only between hierarchy layers.</item>
       </param>
       <param name="empty-extra-separator" type="bool" gui-text="Add extra separator if empty (if none strategy not selected)" indent="1">false</param>
       <param name="top-hierarchy-first" type="bool" gui-text="Top hierarchy first" indent="1">true</param>
     </page>
 
-    <page name="naming" gui-text="Threads">
+    <page name="threads" gui-text="Threads">
       <label appearance="header">Options</label>
       <param name="number-threads" type="int" min="1" max="64" gui-text="Number threads:">8</param>
       <param name="chunks-size" type="int" min="1" max="64" gui-text="Chunks size:">2</param>
